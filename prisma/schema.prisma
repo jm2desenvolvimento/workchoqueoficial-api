@@ -1,0 +1,448 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum for activation status
+enum status {
+  active
+  inactive
+}
+
+// Enum for user roles
+enum user_role {
+  master
+  admin
+  user
+}
+
+// Main user model
+model user {
+  id                String    @id @default(cuid())
+  name              String
+  email             String    @unique
+  password_hash     String
+  role              user_role  @default(user)
+  company_id        String?
+  is_active         Boolean   @default(true)
+  last_login        DateTime?
+  allowed           Json?     // Permissões customizadas específicas do usuário
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  
+  // Relationships
+  profile           profile?
+  
+  // Company relationship (if needed)
+  company           company?  @relation(fields: [company_id], references: [id])
+  
+  // Diagnostic relationships
+  diagnostic_responses diagnostic_response[]
+  
+  // Action plan relationships
+  action_plans      action_plan[]
+  
+  // Gamification relationships
+  user_achievements user_achievement[]
+  user_progress     user_progress?
+  
+  @@map("users")
+}
+
+// User profile model
+model profile {
+  id          String   @id @default(cuid())
+  user_id     String   @unique
+  first_name  String?
+  last_name   String?
+  birth_date  DateTime?
+  avatar_url  String?
+  bio         String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  // Relationships
+  user        user             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  addresses   profile_address[]
+  emails      profile_email[]
+  phones      profile_phone[]
+  
+  @@map("profiles")
+}
+
+// Profile addresses model
+model profile_address {
+  id           String   @id @default(cuid())
+  profile_id   String
+  street       String
+  number       String?
+  complement   String?
+  neighborhood String
+  city         String
+  state        String
+  zip_code     String
+  country      String   @default("Brasil")
+  is_primary   Boolean  @default(false)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  
+  // Relationships
+  profile      profile  @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  
+  @@map("profile_addresses")
+}
+
+// Profile emails model
+model profile_email {
+  id           String   @id @default(cuid())
+  profile_id   String
+  email        String
+  is_primary   Boolean  @default(false)
+  is_verified  Boolean  @default(false)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  
+  // Relationships
+  profile      profile  @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  
+  @@unique([profile_id, email])
+  @@map("profile_emails")
+}
+
+// Profile phones model
+model profile_phone {
+  id           String   @id @default(cuid())
+  profile_id   String
+  phone        String
+  type         String?  // mobile, home, work, etc.
+  is_primary   Boolean  @default(false)
+  is_verified  Boolean  @default(false)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  
+  // Relationships
+  profile      profile  @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  
+  @@map("profile_phones")
+}
+
+// Company model (for user relationships)
+model company {
+  id          String   @id @default(cuid())
+  name        String
+  cnpj        String?  @unique
+  email       String?
+  phone       String?
+  website     String?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  // Relationships
+  users       user[]
+  subscriptions subscription[]
+  
+  @@map("companies")
+}
+
+
+// System permissions model
+model permission {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?
+  category    String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  // Relationships
+  role_permissions role_permission[]
+  
+  @@map("permission")
+}
+
+
+// Relationship model between roles and permissions
+model role_permission {
+  id            String     @id @default(cuid())
+  role          user_role
+  permission_id String
+  created_at    DateTime   @default(now())
+  
+  // Relationships
+  permission    permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+  
+  @@unique([role, permission_id])
+  @@map("role_permission")
+}
+
+
+// ==================== DIAGNOSTICS ====================
+
+// Diagnostic questionnaires model
+model diagnostic {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  type        String   // 'stress', 'climate', 'burnout', etc.
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  // Relationships
+  questions   question[]
+  responses   diagnostic_response[]
+  
+  @@map("diagnostics")
+}
+
+// Diagnostic questions model
+model question {
+  id             String   @id @default(cuid())
+  diagnostic_id  String
+  question       String
+  type           String   // 'scale', 'multiple_choice', 'text'
+  order          Int
+  is_active      Boolean  @default(true)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+  
+  // Relationships
+  diagnostic     diagnostic @relation(fields: [diagnostic_id], references: [id], onDelete: Cascade)
+  options        question_option[]
+  responses      diagnostic_response[]
+  
+  @@map("questions")
+}
+
+// Question options model
+model question_option {
+  id          String   @id @default(cuid())
+  question_id String
+  value       String
+  label       String
+  order       Int
+  created_at  DateTime @default(now())
+  
+  // Relationships
+  question    question @relation(fields: [question_id], references: [id], onDelete: Cascade)
+  
+  @@map("question_options")
+}
+
+// User diagnostic responses model
+model diagnostic_response {
+  id             String   @id @default(cuid())
+  user_id        String
+  diagnostic_id  String
+  question_id    String
+  response       String
+  score          Float?
+  created_at     DateTime @default(now())
+  
+  // Relationships
+  user           user       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  diagnostic     diagnostic @relation(fields: [diagnostic_id], references: [id], onDelete: Cascade)
+  question       question   @relation(fields: [question_id], references: [id], onDelete: Cascade)
+  
+  @@unique([user_id, diagnostic_id, question_id])
+  @@map("diagnostic_response")
+}
+
+// ==================== ACTION PLANS ====================
+
+// Action plans model
+model action_plan {
+  id          String   @id @default(cuid())
+  user_id     String
+  title       String
+  description String
+  category    String   // 'leadership', 'wellness', 'development'
+  status      String   // 'started', 'in_progress', 'almost_completed', 'completed'
+  progress    Int      @default(0) // 0-100
+  deadline    DateTime?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  // Relationships
+  user        user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  tasks       plan_task[]
+  
+  @@map("action_plan")
+}
+
+// Plan tasks model
+model plan_task {
+  id          String   @id @default(cuid())
+  plan_id     String
+  text        String
+  completed   Boolean  @default(false)
+  order       Int
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  // Relationships
+  plan        action_plan @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+  
+  @@map("plan_task")
+}
+
+// ==================== GAMIFICATION ====================
+
+// Achievements model
+model achievement {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  category    String   // 'diagnostics', 'plans', 'time', etc.
+  level       String   // 'bronze', 'silver', 'gold', 'diamond'
+  xp_points   Int
+  rarity      String   // 'common', 'rare', 'epic', 'legendary'
+  is_global   Boolean  @default(false) // true for global achievements
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  // Relationships
+  users       user_achievement[]
+  
+  @@map("achievements")
+}
+
+// User achievements model
+model user_achievement {
+  id            String     @id @default(cuid())
+  user_id       String
+  achievement_id String
+  unlocked      Boolean    @default(false)
+  unlocked_at   DateTime?
+  created_at    DateTime   @default(now())
+  
+  // Relationships
+  user          user       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  achievement   achievement @relation(fields: [achievement_id], references: [id], onDelete: Cascade)
+  
+  @@unique([user_id, achievement_id])
+  @@map("user_achievement")
+}
+
+// User progress model
+model user_progress {
+  id            String   @id @default(cuid())
+  user_id       String   @unique
+  level         Int      @default(1)
+  current_xp    Int      @default(0)
+  next_xp       Int      @default(1000)
+  unlocked_achievements Int @default(0)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+  
+  // Relationships
+  user          user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@map("user_progress")
+}
+
+// ==================== FINANCIAL SYSTEM ====================
+
+// Subscription plans model
+model subscription_plan {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  value       Float
+  cycle       String   // 'monthly', 'quarterly', 'yearly'
+  max_users   Int?
+  features    String[] // array of included features
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  // Relationships
+  subscriptions subscription[]
+  
+  @@map("subscription_plan")
+}
+
+// Company subscriptions model
+model subscription {
+  id                String   @id @default(cuid())
+  company_id        String
+  plan_id           String
+  status            String   // 'active', 'suspended', 'cancelled', 'expired'
+  start_date        DateTime
+  end_date          DateTime
+  next_billing      DateTime
+  discount          Float    @default(0)
+  final_value       Float
+  notes             String?
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+  
+  // Relationships
+  company           company        @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  plan              subscription_plan @relation(fields: [plan_id], references: [id])
+  transactions      transaction[]
+  
+  @@map("subscriptions")
+}
+
+// Financial transactions model
+model transaction {
+  id                String   @id @default(cuid())
+  subscription_id   String?
+  type              String   // 'revenue', 'expense', 'refund'
+  category          String   // 'subscription', 'infrastructure', 'marketing', etc.
+  description       String
+  value             Float
+  status            String   // 'pending', 'processing', 'approved', 'rejected'
+  payment_method    String   // 'card', 'pix', 'boleto', 'transfer'
+  reference         String
+  notes             String?
+  transaction_date  DateTime
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+  
+  // Relationships
+  subscription      subscription? @relation(fields: [subscription_id], references: [id])
+  
+  @@map("transactions")
+}
+
+// ==================== REPORTS AND METRICS ====================
+
+// System metrics model
+model metric {
+  id          String   @id @default(cuid())
+  name        String
+  value       Float
+  category    String   // 'user', 'company', 'system', 'financial'
+  period      String   // 'daily', 'weekly', 'monthly', 'yearly'
+  metric_date DateTime
+  created_at  DateTime @default(now())
+  
+  @@map("metrics")
+}
+
+// Generated reports model
+model report {
+  id          String   @id @default(cuid())
+  title       String
+  type        String   // 'diagnostics', 'engagement', 'financial', 'global'
+  start_date  DateTime
+  end_date    DateTime
+  data        Json     // report data in JSON
+  file_url    String?  // generated file URL
+  created_by  String   // user_id who generated
+  created_at  DateTime @default(now())
+  
+  @@map("reports")
+}
