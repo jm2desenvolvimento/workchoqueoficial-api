@@ -17,7 +17,7 @@ import { NotificationsService } from '../notifications/notifications.service';
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET') || 'your-secret-key',
         signOptions: { 
-          expiresIn: configService.get<string>('JWT_EXPIRES_IN') || '24h' 
+          expiresIn: configService.get<number>('JWT_EXPIRES_IN') || 86400 // 24h em segundos
         },
       }),
       inject: [ConfigService],
