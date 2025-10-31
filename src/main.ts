@@ -8,7 +8,7 @@ async function bootstrap() {
   
   // Habilitar CORS para o frontend
   app.enableCors({
-    origin: ['http://localhost:5173', 'http://localhost:3000'],
+    origin: ['http://localhost:5173', 'http://localhost:3025', 'https://workchoque.jm2.tec.br'],
     credentials: true,
   });
   
