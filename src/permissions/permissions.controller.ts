@@ -76,6 +76,11 @@ export class PermissionsController {
 
   // ==================== ROLE PERMISSIONS ====================
 
+  @Get('roles')
+  async getAllRolesPermissions(): Promise<Record<string, RolePermissionsResponseDto>> {
+    return this.permissionsService.getAllRolesPermissions();
+  }
+
   @Get('roles/:role')
   async getRolePermissions(@Param('role') role: UserRole): Promise<RolePermissionsResponseDto> {
     return this.permissionsService.getRolePermissions(role);

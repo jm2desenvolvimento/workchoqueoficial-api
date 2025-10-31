@@ -1,6 +1,7 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, Inject, forwardRef } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from './audit.service';
 import * as bcrypt from 'bcryptjs';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -10,6 +11,8 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    @Inject(forwardRef(() => AuditService))
+    private auditService: AuditService,
   ) {}
 
   async validateUser(email: string, password: string): Promise<any> {
@@ -24,11 +27,47 @@ export class AuthService {
     return null;
   }
 
-  async login(loginDto: LoginDto) {
+  async login(loginDto: LoginDto, requestInfo?: { ip?: string; userAgent?: string }) {
     const user = await this.validateUser(loginDto.email, loginDto.password);
     
     if (!user) {
+      // Log failed login attempt
+      if (requestInfo) {
+        await this.logFailedLogin(loginDto.email, requestInfo, 'Invalid credentials');
+        
+        // Verificar tentativas múltiplas de login falhado
+        if (this.auditService) {
+          await this.auditService.checkFailedLoginAttempts(loginDto.email, requestInfo.ip || '');
+        }
+      }
       throw new UnauthorizedException('Credenciais inválidas');
+    }
+
+    // Update last_login timestamp
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { last_login: new Date() }
+    });
+
+    // Log successful login
+    try {
+      console.log(`AuthService: Logging successful login for user ${user.id}`);
+      const loginRecord = await this.logSuccessfulLogin(user.id, requestInfo);
+      
+      // Log user activity
+      await this.logUserActivity(user.id, 'login', undefined, undefined, {
+        login_record_id: loginRecord.id,
+        ...requestInfo
+      });
+      console.log(`AuthService: User activity logged for user ${user.id}`);
+
+      // Verificar IP suspeito
+      if (this.auditService && requestInfo?.ip) {
+        await this.auditService.checkSuspiciousIP(requestInfo.ip, user.id);
+      }
+    } catch (error) {
+      console.error('Error logging login activity:', error);
+      // Continue with login even if logging fails
     }
 
     const payload = { 
@@ -52,6 +91,7 @@ export class AuthService {
         allowed: user.allowed,
         created_at: user.created_at,
         updated_at: user.updated_at,
+        last_login: new Date(),
       },
     };
   }
@@ -172,6 +212,8 @@ export class AuthService {
         email: true,
         role: true,
         company_id: true,
+        is_active: true,
+        last_login: true,
         allowed: true,
         created_at: true,
         updated_at: true,
@@ -193,6 +235,182 @@ export class AuthService {
     );
 
     return usersWithPermissions;
+  }
+
+  async updateUserPermissions(userId: string, permissions: string[]) {
+    // Buscar todas as permissões do sistema para criar o objeto allowed
+    const allPermissions = await this.prisma.permission.findMany({
+      select: { key: true }
+    });
+
+    // Criar objeto allowed com todas as permissões
+    const allowed: Record<string, boolean> = {};
+    allPermissions.forEach(permission => {
+      allowed[permission.key] = permissions.includes(permission.key);
+    });
+
+    // Atualizar usuário
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: { allowed },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        is_active: true,
+        allowed: true,
+        updated_at: true
+      }
+    });
+
+    return {
+      message: 'Permissões atualizadas com sucesso',
+      user: updatedUser
+    };
+  }
+
+  // ==================== AUDIT AND ACTIVITY TRACKING ====================
+
+  async logSuccessfulLogin(userId: string, requestInfo?: { ip?: string; userAgent?: string }) {
+    const deviceInfo = this.parseDeviceInfo(requestInfo?.userAgent);
+    
+    try {
+      return await this.prisma.login_history.create({
+        data: {
+          user_id: userId,
+          login_at: new Date(),
+          ip_address: requestInfo?.ip,
+          user_agent: requestInfo?.userAgent,
+          device_info: deviceInfo.device,
+          browser_info: deviceInfo.browser,
+          status: 'success'
+        }
+      });
+    } catch (error) {
+      console.error('Error logging successful login:', error);
+      return { id: 'temp-login-id' };
+    }
+  }
+
+  async logFailedLogin(email: string, requestInfo: { ip?: string; userAgent?: string }, reason: string) {
+    // Try to find user by email for logging purposes
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true }
+    });
+
+    if (user) {
+      const deviceInfo = this.parseDeviceInfo(requestInfo.userAgent);
+      
+      try {
+        await this.prisma.login_history.create({
+          data: {
+            user_id: user.id,
+            login_at: new Date(),
+            ip_address: requestInfo.ip,
+            user_agent: requestInfo.userAgent,
+            device_info: deviceInfo.device,
+            browser_info: deviceInfo.browser,
+            status: 'failed',
+            failure_reason: reason
+          }
+        });
+      } catch (error) {
+        console.error('Error logging failed login:', error);
+      }
+    }
+  }
+
+  async logUserActivity(
+    userId: string, 
+    action: string, 
+    entityType?: string, 
+    entityId?: string, 
+    details?: any,
+    requestInfo?: { ip?: string; userAgent?: string }
+  ) {
+    try {
+      console.log(`AuthService: Creating activity log for user ${userId}, action: ${action}`);
+      const result = await this.prisma.user_activity_log.create({
+        data: {
+          user_id: userId,
+          action,
+          entity_type: entityType,
+          entity_id: entityId,
+          details: details ? JSON.stringify(details) : undefined,
+          ip_address: requestInfo?.ip,
+          user_agent: requestInfo?.userAgent
+        }
+      });
+      console.log(`AuthService: Activity log created with ID: ${result.id}`);
+    } catch (error) {
+      console.error('Error logging user activity:', error);
+    }
+  }
+
+  private parseDeviceInfo(userAgent?: string) {
+    if (!userAgent) return { device: null, browser: null };
+
+    let device = 'Desktop';
+    let browser = 'Unknown';
+
+    // Detect device type
+    if (/Mobile|Android|iPhone|iPad/.test(userAgent)) {
+      device = /iPad/.test(userAgent) ? 'Tablet' : 'Mobile';
+    }
+
+    // Detect browser
+    if (/Chrome/.test(userAgent)) browser = 'Chrome';
+    else if (/Firefox/.test(userAgent)) browser = 'Firefox';
+    else if (/Safari/.test(userAgent)) browser = 'Safari';
+    else if (/Edge/.test(userAgent)) browser = 'Edge';
+    else if (/Opera/.test(userAgent)) browser = 'Opera';
+
+    return { device, browser };
+  }
+
+  async getUserActivityStats(userId: string) {
+    try {
+      const [totalActivities, recentActivities, loginStats] = await Promise.all([
+        // Total de atividades
+        this.prisma.user_activity_log.count({
+          where: { user_id: userId }
+        }),
+        
+        // Atividades recentes (últimos 7 dias)
+        this.prisma.user_activity_log.findMany({
+          where: {
+            user_id: userId,
+            created_at: {
+              gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+            }
+          },
+          orderBy: { created_at: 'desc' },
+          take: 10
+        }),
+        
+        // Estatísticas de login
+        this.prisma.login_history.findMany({
+          where: { user_id: userId },
+          orderBy: { login_at: 'desc' },
+          take: 5
+        })
+      ]);
+
+      return {
+        total_activities: totalActivities,
+        recent_activities: recentActivities,
+        recent_logins: loginStats
+      };
+    } catch (error) {
+      console.error('Error getting user activity stats:', error);
+      return {
+        total_activities: 0,
+        recent_activities: [],
+        recent_logins: []
+      };
+    }
   }
 
 }

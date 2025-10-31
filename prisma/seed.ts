@@ -105,11 +105,45 @@ async function main() {
 async function createPermissions() {
   console.log('📋 Criando permissões do sistema...');
 
+  // Remover permissões obsoletas
+  console.log('🗑️ Removendo permissões obsoletas...');
+  
+  // Remover permission config.manage
+  await prisma.permission.deleteMany({
+    where: { key: 'config.manage' }
+  });
+  console.log('✅ Permissão config.manage removida');
+  
+  // Remover role_permissions relacionadas ao config.manage
+  const configManagePermission = await prisma.permission.findUnique({
+    where: { key: 'config.manage' }
+  });
+  
+  if (configManagePermission) {
+    await prisma.role_permission.deleteMany({
+      where: { permission_id: configManagePermission.id }
+    });
+    console.log('✅ Role permissions do config.manage removidas');
+  }
+
   const permissions = [
     // Dashboards
     { key: 'dashboard.master.view', name: 'Visualizar Dashboard Global', category: 'dashboard' },
     { key: 'dashboard.admin.view', name: 'Visualizar Dashboard da Empresa', category: 'dashboard' },
     { key: 'dashboard.user.view', name: 'Visualizar Dashboard Pessoal', category: 'dashboard' },
+    
+    // Conteúdos
+    { key: 'conteudo.view', name: 'Visualizar Conteúdos', category: 'conteudo' },
+    { key: 'conteudo.create', name: 'Criar Conteúdos', category: 'conteudo' },
+    { key: 'conteudo.edit', name: 'Editar Conteúdos', category: 'conteudo' },
+    { key: 'conteudo.delete', name: 'Excluir Conteúdos', category: 'conteudo' },
+    { key: 'conteudo.manage', name: 'Gerenciar Conteúdos', category: 'conteudo' },
+    
+    // Questionários
+    { key: 'questionario.view', name: 'Visualizar Questionários', category: 'questionario' },
+    { key: 'questionario.create', name: 'Criar Questionários', category: 'questionario' },
+    { key: 'questionario.edit', name: 'Editar Questionários', category: 'questionario' },
+    { key: 'questionario.delete', name: 'Deletar Questionários', category: 'questionario' },
     
     // Diagnósticos
     { key: 'diagnostico.view', name: 'Visualizar Diagnósticos', category: 'diagnostico' },
@@ -157,6 +191,21 @@ async function createPermissions() {
     { key: 'relatorio.view', name: 'Visualizar Relatórios', category: 'relatorio' },
     { key: 'relatorio.create', name: 'Criar Relatórios', category: 'relatorio' },
     { key: 'relatorio.export', name: 'Exportar Relatórios', category: 'relatorio' },
+    
+    // Auditoria e Segurança
+    { key: 'auditoria.logs.view', name: 'Visualizar Logs de Auditoria', category: 'auditoria' },
+    { key: 'auditoria.logs.export', name: 'Exportar Logs de Auditoria', category: 'auditoria' },
+    { key: 'auditoria.alerts.view', name: 'Ver Alertas de Segurança', category: 'auditoria' },
+    { key: 'auditoria.alerts.manage', name: 'Gerenciar Alertas de Segurança', category: 'auditoria' },
+    { key: 'auditoria.compliance.view', name: 'Ver Relatórios de Compliance', category: 'auditoria' },
+    { key: 'auditoria.compliance.export', name: 'Exportar Relatórios de Compliance', category: 'auditoria' },
+    
+    // Notificações
+    { key: 'notification.view', name: 'Visualizar Notificações', category: 'notification' },
+    { key: 'notification.create', name: 'Criar Notificações', category: 'notification' },
+    { key: 'notification.manage', name: 'Gerenciar Notificações', category: 'notification' },
+    { key: 'notification.broadcast', name: 'Enviar Notificações Globais', category: 'notification' },
+    { key: 'notification.stats', name: 'Ver Estatísticas de Notificações', category: 'notification' },
     { key: 'relatorio.global', name: 'Acessar Relatórios Globais', category: 'relatorio' },
     
     // Financeiro
@@ -166,7 +215,6 @@ async function createPermissions() {
     // Configurações
     { key: 'config.view', name: 'Visualizar Configurações', category: 'config' },
     { key: 'config.edit', name: 'Editar Configurações', category: 'config' },
-    { key: 'config.manage', name: 'Gerenciar Configurações', category: 'config' },
     
     // Sistema
     { key: 'sistema.view', name: 'Visualizar Sistema', category: 'sistema' },
@@ -202,6 +250,11 @@ async function createRolePermissions() {
     'diagnostico.create',
     'plano.view',
     'conquista.view',
+    'relatorio.view',
+    'notification.view',
+    'config.view',
+    'config.edit',
+    'conteudo.view',
   ];
 
   // Permissões para ADMIN
@@ -225,8 +278,26 @@ async function createRolePermissions() {
     'relatorio.view',
     'relatorio.create',
     'relatorio.export',
+    'notification.view',
+    'notification.create',
+    'notification.stats',
     'config.view',
     'config.edit',
+    'questionario.view',
+    'questionario.create',
+    'questionario.edit',
+    'conteudo.view',
+    'conteudo.create',
+    'conteudo.edit',
+    'conteudo.delete',
+    'conteudo.manage',
+    // Auditoria e Segurança para Admin
+    'auditoria.logs.view',
+    'auditoria.logs.export',
+    'auditoria.alerts.view',
+    'auditoria.alerts.manage',
+    'auditoria.compliance.view',
+    'auditoria.compliance.export',
   ];
 
   // Permissões para MASTER (todas)

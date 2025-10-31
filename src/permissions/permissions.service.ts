@@ -114,6 +114,17 @@ export class PermissionsService {
 
   // ==================== ROLE PERMISSIONS ====================
 
+  async getAllRolesPermissions(): Promise<Record<string, RolePermissionsResponseDto>> {
+    const roles = ['master', 'admin', 'user'] as const;
+    const result: Record<string, RolePermissionsResponseDto> = {};
+
+    for (const role of roles) {
+      result[role] = await this.getRolePermissions(role as UserRole);
+    }
+
+    return result;
+  }
+
   async getRolePermissions(role: UserRole): Promise<RolePermissionsResponseDto> {
     const rolePermissions = await this.prisma.role_permission.findMany({
       where: { role: role as any },

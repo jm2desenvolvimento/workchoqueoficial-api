@@ -43,15 +43,27 @@ model user {
   // Company relationship (if needed)
   company           company?  @relation(fields: [company_id], references: [id])
   
-  // Diagnostic relationships
-  diagnostic_responses diagnostic_response[]
+  // Questionnaire relationships
+  questionnaire_responses questionnaire_response[]
   
-  // Action plan relationships
-  action_plans      action_plan[]
+  // Diagnostic relationships
+  diagnostics diagnostic[]
+  
+  // Action Plans relationships
+  action_plans action_plan[]
+  assigned_tasks task[] @relation("assigned_tasks")
   
   // Gamification relationships
   user_achievements user_achievement[]
   user_progress     user_progress?
+  
+  // Notification relationships
+  notifications_created notification[] @relation("NotificationCreator")
+  
+  // Audit and activity relationships
+  activity_logs     user_activity_log[]
+  login_history     login_history[]
+  notifications     notification[]
   
   @@map("users")
 }
@@ -185,114 +197,178 @@ model role_permission {
 }
 
 
-// ==================== DIAGNOSTICS ====================
+// ==================== QUESTIONÁRIOS (COLETA DE DADOS) ====================
 
-// Diagnostic questionnaires model
-model diagnostic {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  type        String   // 'stress', 'climate', 'burnout', etc.
-  is_active   Boolean  @default(true)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+// Questionários - formulários para coleta de dados
+model questionnaire {
+  id             String   @id @default(cuid())
+  title          String
+  description    String?
+  type           String   // 'stress', 'climate', 'burnout', etc.
+  estimated_time Int      @default(15) // Tempo estimado em minutos
+  is_active      Boolean  @default(true)
+  created_by     String   // user_id do master/admin que criou
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
   
   // Relationships
-  questions   question[]
-  responses   diagnostic_response[]
+  questions    questionnaire_question[]
+  responses    questionnaire_response[]
+  diagnostics  diagnostic[] // Diagnósticos gerados a partir deste questionário
   
-  @@map("diagnostics")
+  @@map("questionnaires")
 }
 
-// Diagnostic questions model
-model question {
+// Perguntas dos questionários
+model questionnaire_question {
   id             String   @id @default(cuid())
-  diagnostic_id  String
+  questionnaire_id String
   question       String
-  type           String   // 'scale', 'multiple_choice', 'text'
+  type           String   // 'scale', 'multiple_choice', 'text', 'yes_no'
   order          Int
+  required       Boolean  @default(true) // Se a pergunta é obrigatória
   is_active      Boolean  @default(true)
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
   
   // Relationships
-  diagnostic     diagnostic @relation(fields: [diagnostic_id], references: [id], onDelete: Cascade)
-  options        question_option[]
-  responses      diagnostic_response[]
+  questionnaire  questionnaire @relation(fields: [questionnaire_id], references: [id], onDelete: Cascade)
+  options        questionnaire_option[]
+  responses      questionnaire_response[]
   
-  @@map("questions")
+  @@map("questionnaire_questions")
 }
 
-// Question options model
-model question_option {
+// Opções das perguntas
+model questionnaire_option {
   id          String   @id @default(cuid())
   question_id String
   value       String
   label       String
+  score       Int      @default(1) // Score da opção para cálculo
   order       Int
   created_at  DateTime @default(now())
   
   // Relationships
-  question    question @relation(fields: [question_id], references: [id], onDelete: Cascade)
+  question    questionnaire_question @relation(fields: [question_id], references: [id], onDelete: Cascade)
   
-  @@map("question_options")
+  @@map("questionnaire_options")
 }
 
-// User diagnostic responses model
-model diagnostic_response {
+// Respostas dos usuários aos questionários
+model questionnaire_response {
   id             String   @id @default(cuid())
   user_id        String
-  diagnostic_id  String
+  questionnaire_id String
   question_id    String
   response       String
-  score          Float?
-  created_at     DateTime @default(now())
+  score          Float?   // Score simples da resposta
+  completed_at   DateTime @default(now())
   
   // Relationships
-  user           user       @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  diagnostic     diagnostic @relation(fields: [diagnostic_id], references: [id], onDelete: Cascade)
-  question       question   @relation(fields: [question_id], references: [id], onDelete: Cascade)
+  user           user                   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  questionnaire  questionnaire          @relation(fields: [questionnaire_id], references: [id], onDelete: Cascade)
+  question       questionnaire_question @relation(fields: [question_id], references: [id], onDelete: Cascade)
   
-  @@unique([user_id, diagnostic_id, question_id])
-  @@map("diagnostic_response")
+  @@unique([user_id, questionnaire_id, question_id])
+  @@map("questionnaire_responses")
+}
+
+// ==================== DIAGNÓSTICOS (ANÁLISE IA) ====================
+
+// Diagnósticos - análises geradas pela IA a partir das respostas
+model diagnostic {
+  id             String   @id @default(cuid())
+  user_id        String
+  questionnaire_id String
+  analysis_data  Json     // Dados da análise da IA
+  insights       String[] // Insights principais
+  recommendations String[] // Recomendações geradas
+  areas_focus    String[] // Áreas de foco identificadas
+  score_intelligent Float // Score inteligente calculado pela IA
+  status         String   // 'processing', 'completed', 'failed'
+  generated_at   DateTime @default(now())
+  completed_at   DateTime?
+  
+  // Relationships
+  user           user           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  questionnaire  questionnaire  @relation(fields: [questionnaire_id], references: [id], onDelete: Cascade)
+  action_plans   action_plan[]  // Relação inversa para action_plan
+  
+  @@map("diagnostics")
 }
 
 // ==================== ACTION PLANS ====================
 
 // Action plans model
 model action_plan {
-  id          String   @id @default(cuid())
-  user_id     String
-  title       String
-  description String
-  category    String   // 'leadership', 'wellness', 'development'
-  status      String   // 'started', 'in_progress', 'almost_completed', 'completed'
-  progress    Int      @default(0) // 0-100
-  deadline    DateTime?
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  id              String    @id @default(cuid())
+  user_id         String
+  title           String
+  description     String?
+  category        String    // 'leadership', 'wellness', 'development', 'performance', 'career'
+  status          String    @default("rascunho")  // rascunho, em_andamento, pausado, concluido, cancelado
+  priority        String    @default("media")     // baixa, media, alta
+  progress        Int       @default(0)           // 0-100
+  start_date      DateTime?
+  due_date        DateTime?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
   
   // Relationships
-  user        user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  tasks       plan_task[]
+  user            user      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  diagnostic_id   String?
+  diagnostic      diagnostic? @relation(fields: [diagnostic_id], references: [id])
+  goals           goal[]
   
-  @@map("action_plan")
+  @@map("action_plans")
+  @@index([user_id])
+  @@index([diagnostic_id])
 }
 
-// Plan tasks model
-model plan_task {
-  id          String   @id @default(cuid())
-  plan_id     String
-  text        String
-  completed   Boolean  @default(false)
-  order       Int
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+// Goal model
+model goal {
+  id              String    @id @default(cuid())
+  title           String
+  description     String?
+  status          String    @default("pendente")  // pendente, em_andamento, concluida, cancelada
+  priority        String    @default("media")     // baixa, media, alta
+  progress        Int       @default(0)           // 0-100
+  start_date      DateTime?
+  due_date        DateTime?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
   
   // Relationships
-  plan        action_plan @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+  action_plan_id  String
+  action_plan     action_plan @relation(fields: [action_plan_id], references: [id], onDelete: Cascade)
+  tasks           task[]
   
-  @@map("plan_task")
+  @@map("goals")
+  @@index([action_plan_id])
+}
+
+// Task model
+model task {
+  id              String    @id @default(cuid())
+  title           String
+  description     String?
+  status          String    @default("pendente")  // pendente, em_andamento, concluida, cancelada
+  priority        String    @default("media")     // baixa, media, alta
+  due_date        DateTime?
+  completed_at    DateTime?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  
+  // Relationships
+  goal_id         String
+  goal            goal      @relation(fields: [goal_id], references: [id], onDelete: Cascade)
+  assigned_to_id  String?
+  assigned_to     user?     @relation("assigned_tasks", fields: [assigned_to_id], references: [id])
+  
+  @@map("tasks")
+  @@index([goal_id])
+  @@index([assigned_to_id])
 }
 
 // ==================== GAMIFICATION ====================
@@ -417,6 +493,91 @@ model transaction {
   @@map("transactions")
 }
 
+// ==================== AUDIT AND ACTIVITY TRACKING ====================
+
+// User activity logs - rastreia todas as ações dos usuários
+model user_activity_log {
+  id          String   @id @default(cuid())
+  user_id     String
+  action      String   // 'login', 'logout', 'create_diagnostic', 'update_profile', etc.
+  entity_type String?  // 'diagnostic', 'action_plan', 'user', 'questionnaire', etc.
+  entity_id   String?  // ID da entidade afetada
+  details     Json?    // Detalhes adicionais da ação
+  ip_address  String?  // IP do usuário
+  user_agent  String?  // Browser/device info
+  created_at  DateTime @default(now())
+  
+  // Relationships
+  user        user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@map("user_activity_logs")
+}
+
+// Login history - histórico detalhado de logins
+model login_history {
+  id              String   @id @default(cuid())
+  user_id         String
+  login_at        DateTime @default(now())
+  logout_at       DateTime?
+  ip_address      String?
+  user_agent      String?
+  device_info     String?  // Mobile, Desktop, Tablet
+  browser_info    String?  // Chrome, Firefox, Safari, etc.
+  location        String?  // Cidade/País (se disponível)
+  session_duration Int?    // Duração da sessão em minutos
+  status          String   // 'success', 'failed', 'suspicious'
+  failure_reason  String?  // Motivo da falha se status = 'failed'
+  
+  // Relationships
+  user            user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@map("login_history")
+}
+
+// ==================== NOTIFICATIONS SYSTEM ====================
+
+// Enum for notification types
+enum notification_type {
+  info
+  warning
+  error
+  success
+  security
+}
+
+// Enum for notification priority
+enum notification_priority {
+  low
+  medium
+  high
+  urgent
+}
+
+// Notifications - sistema de notificações por role
+model notification {
+  id          String                @id @default(cuid())
+  user_id     String?               // null = notificação global por role
+  role        user_role?            // null = notificação específica para user_id
+  created_by  String?               // ID do usuário que criou a notificação
+  title       String
+  message     String
+  type        notification_type     @default(info)
+  priority    notification_priority @default(medium)
+  is_read     Boolean               @default(false)
+  is_global   Boolean               @default(false) // true = para todos os usuários
+  action_url  String?               // URL para ação da notificação
+  metadata    Json?                 // Dados adicionais
+  expires_at  DateTime?             // Data de expiração
+  created_at  DateTime              @default(now())
+  read_at     DateTime?             // Quando foi lida
+  
+  // Relationships
+  user        user?                 @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  creator     user?                 @relation("NotificationCreator", fields: [created_by], references: [id], onDelete: SetNull)
+  
+  @@map("notifications")
+}
+
 // ==================== REPORTS AND METRICS ====================
 
 // System metrics model
@@ -446,3 +607,4 @@ model report {
   
   @@map("reports")
 }
+
