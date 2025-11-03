@@ -11,6 +11,7 @@ import { AiController } from './IAs/ai.controller';
 import { PrismaService } from './prisma/prisma.service';
 import { ActivityTrackingMiddleware } from './auth/middleware/activity-tracking.middleware';
 import { ActionPlansModule } from './action-plans/action-plans.module';
+import { CategoriesModule } from './categories/categories.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ActionPlansModule } from './action-plans/action-plans.module';
     DiagnosticsModule,
     NotificationsModule,
     ActionPlansModule,
+    CategoriesModule,
   ],
   controllers: [AppController, AiController],
   providers: [AppService, PrismaService],

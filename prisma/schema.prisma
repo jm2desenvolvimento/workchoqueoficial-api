@@ -23,6 +23,35 @@ enum user_role {
   user
 }
 
+// Enum for content status
+enum content_status {
+  draft
+  published
+  archived
+}
+
+// Enum for content access levels
+enum access_level {
+  public
+  restricted
+  private
+}
+
+// Enum for action plan content status
+enum action_plan_status {
+  pending
+  in_progress
+  completed
+}
+
+// Enum for category types
+enum category_type {
+  content
+  action_plan
+  achievement
+  other
+}
+
 // Main user model
 model user {
   id                String    @id @default(cuid())
@@ -316,10 +345,11 @@ model action_plan {
   updated_at      DateTime  @updatedAt
   
   // Relationships
-  user            user      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user            user                    @relation(fields: [user_id], references: [id], onDelete: Cascade)
   diagnostic_id   String?
-  diagnostic      diagnostic? @relation(fields: [diagnostic_id], references: [id])
+  diagnostic      diagnostic?             @relation(fields: [diagnostic_id], references: [id])
   goals           goal[]
+  contents        action_plan_content[]
   
   @@map("action_plans")
   @@index([user_id])
@@ -581,6 +611,73 @@ model notification {
 // ==================== REPORTS AND METRICS ====================
 
 // System metrics model
+// Modelo para Categorias
+model category {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        category_type
+  icon        String?
+  color       String?  // Código de cor em hex
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  created_by  String
+  parent_id   String?  // Para subcategorias
+  order       Int      @default(0)
+  contents    content[]
+  parent      category?  @relation("CategoryHierarchy", fields: [parent_id], references: [id])
+  children    category[] @relation("CategoryHierarchy")
+  
+  @@unique([name, type])
+  @@map("categories")
+}
+
+// Modelo para Conteúdos
+model content {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  type        String    // article, video, infographic, document, link
+  content     String    // HTML content ou URL
+  category_id String
+  category    category  @relation(fields: [category_id], references: [id])
+  metadata    Json?     // { duration, difficulty, tags, etc. }
+  status      content_status   @default(draft)
+  access_level access_level     @default(restricted)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  created_by  String
+  views       Int       @default(0)
+  downloads   Int       @default(0)
+  is_featured Boolean   @default(false)
+  order       Int       @default(0)
+  
+  // Relacionamentos
+  action_plans action_plan_content[]
+  
+  @@map("contents")
+}
+
+// Tabela de relacionamento entre Planos de Ação e Conteúdos
+model action_plan_content {
+  id              String    @id @default(cuid())
+  action_plan_id  String
+  content_id      String
+  status          action_plan_status    @default(pending)
+  completed_at    DateTime?
+  feedback        String?
+  rating          Int?
+  order           Int
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  action_plan     action_plan @relation(fields: [action_plan_id], references: [id])
+  content         content    @relation(fields: [content_id], references: [id])
+
+  @@unique([action_plan_id, content_id])
+  @@map("action_plan_contents")
+}
+
 model metric {
   id          String   @id @default(cuid())
   name        String

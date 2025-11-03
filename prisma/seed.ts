@@ -98,6 +98,9 @@ async function main() {
   } else {
     console.log('ℹ️ Usuário comum já existe');
   }
+  
+  // Criar categorias iniciais
+  await seedCategories();
 
   console.log('🎉 Seed concluído com sucesso!');
 }
@@ -234,6 +237,133 @@ async function createPermissions() {
 
   // Criar permissões por role
   await createRolePermissions();
+}
+
+async function seedCategories() {
+  console.log('🌱 Populando categorias iniciais...');
+  
+  const categories = [
+    {
+      name: 'Conteúdos',
+      slug: 'conteudos',
+      type: 'content',
+      description: 'Conteúdos educacionais e informativos',
+      icon: 'book',
+      color: '#4F46E5',
+      order: 1,
+      children: [
+        {
+          name: 'Liderança',
+          slug: 'lideranca',
+          type: 'content',
+          description: 'Conteúdos sobre liderança e gestão de equipes',
+          icon: 'users',
+          color: '#8B5CF6',
+          order: 1
+        },
+        {
+          name: 'Bem-estar',
+          slug: 'bem-estar',
+          type: 'content',
+          description: 'Conteúdos sobre saúde mental e bem-estar',
+          icon: 'heart',
+          color: '#EC4899',
+          order: 2
+        },
+        {
+          name: 'Desenvolvimento Pessoal',
+          slug: 'desenvolvimento-pessoal',
+          type: 'content',
+          description: 'Conteúdos para desenvolvimento pessoal e profissional',
+          icon: 'user-plus',
+          color: '#10B981',
+          order: 3
+        },
+        {
+          name: 'Desempenho',
+          slug: 'desempenho',
+          type: 'content',
+          description: 'Conteúdos sobre produtividade e alto desempenho',
+          icon: 'trending-up',
+          color: '#F59E0B',
+          order: 4
+        },
+        {
+          name: 'Carreira',
+          slug: 'carreira',
+          type: 'content',
+          description: 'Conteúdos sobre desenvolvimento de carreira',
+          icon: 'briefcase',
+          color: '#3B82F6',
+          order: 5
+        }
+      ]
+    },
+    {
+      name: 'Planos de Ação',
+      slug: 'planos-de-acao',
+      type: 'action_plan',
+      description: 'Categorias para organização dos planos de ação',
+      icon: 'clipboard-list',
+      color: '#10B981',
+      order: 2
+    },
+    {
+      name: 'Conquistas',
+      slug: 'conquistas',
+      type: 'achievement',
+      description: 'Categorias para organização de conquistas',
+      icon: 'trophy',
+      color: '#F59E0B',
+      order: 3
+    }
+  ];
+
+  for (const categoryData of categories) {
+    const { children = [], ...categoryWithoutChildren } = categoryData;
+    
+    // Verifica se a categoria já existe
+    let category = await prisma.category.findFirst({
+      where: { slug: categoryData.slug, type: categoryData.type as any }
+    });
+
+    if (!category) {
+      // Cria a categoria principal
+      category = await prisma.category.create({
+        data: {
+          ...categoryWithoutChildren,
+          created_by: 'system',
+          updated_by: 'system'
+        }
+      });
+      console.log(`✅ Categoria criada: ${category.name}`);
+    }
+
+    // Cria as subcategorias, se houver
+    for (const childData of children) {
+      const existingChild = await prisma.category.findFirst({
+        where: { 
+          slug: childData.slug, 
+          type: childData.type as any,
+          parent_id: category.id
+        }
+      });
+
+      if (!existingChild) {
+        await prisma.category.create({
+          data: {
+            ...childData,
+            parent_id: category.id,
+            created_by: 'system',
+            updated_by: 'system'
+          }
+        });
+        console.log(`   → Subcategoria criada: ${childData.name}`);
+      }
+    }
+  }
+  
+  console.log('✅ Categorias iniciais criadas com sucesso!');
 }
 
 async function createRolePermissions() {
