@@ -613,18 +613,20 @@ model notification {
 // System metrics model
 // Modelo para Categorias
 model category {
-  id          String   @id @default(cuid())
+  id          String     @id @default(cuid())
   name        String
   description String?
   type        category_type
   icon        String?
-  color       String?  // Código de cor em hex
-  is_active   Boolean  @default(true)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  color       String?    // Código de cor em hex
+  is_active   Boolean    @default(true)
+  created_at  DateTime   @default(now())
+  updated_at  DateTime   @updatedAt
   created_by  String
-  parent_id   String?  // Para subcategorias
-  order       Int      @default(0)
+  parent_id   String?    // Para subcategorias
+  order       Int        @default(0)
+  
+  // Relacionamentos
   contents    content[]
   parent      category?  @relation("CategoryHierarchy", fields: [parent_id], references: [id])
   children    category[] @relation("CategoryHierarchy")
