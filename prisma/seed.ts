@@ -322,28 +322,35 @@ async function seedCategories() {
   for (const categoryData of categories) {
     const { children = [], ...categoryWithoutChildren } = categoryData;
     
-    // Verifica se a categoria já existe
+    // Verifica se a categoria já existe pelo nome e tipo
     let category = await prisma.category.findFirst({
-      where: { slug: categoryData.slug, type: categoryData.type as any }
+      where: { 
+        name: categoryData.name,
+        type: categoryData.type as any
+      }
     });
 
     if (!category) {
       // Cria a categoria principal
       category = await prisma.category.create({
         data: {
-          ...categoryWithoutChildren,
-          created_by: 'system',
-          updated_by: 'system'
+          name: categoryData.name,
+          description: categoryData.description,
+          type: categoryData.type as any,
+          icon: categoryData.icon,
+          color: categoryData.color,
+          order: categoryData.order,
+          created_by: 'system'
         }
       });
       console.log(`✅ Categoria criada: ${category.name}`);
     }
 
-    // Cria as subcategorias, se houver
+    // Processa subcategorias se existirem
     for (const childData of children) {
       const existingChild = await prisma.category.findFirst({
         where: { 
-          slug: childData.slug, 
+          name: childData.name,
           type: childData.type as any,
           parent_id: category.id
         }
@@ -352,13 +359,17 @@ async function seedCategories() {
       if (!existingChild) {
         await prisma.category.create({
           data: {
-            ...childData,
-            parent_id: category.id,
+            name: childData.name,
+            description: childData.description,
+            type: childData.type as any,
+            icon: childData.icon,
+            color: childData.color,
+            order: childData.order,
             created_by: 'system',
-            updated_by: 'system'
+            parent_id: category.id
           }
         });
-        console.log(`   → Subcategoria criada: ${childData.name}`);
+        console.log(`   ✅ Subcategoria criada: ${childData.name}`);
       }
     }
   }

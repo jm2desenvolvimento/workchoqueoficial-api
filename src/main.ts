@@ -6,10 +6,20 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  // Habilitar CORS para o frontend
+  // Configuração de CORS dinâmica baseada em variáveis de ambiente
+  const corsOrigins = process.env.CORS_ORIGINS 
+    ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
+    : ['http://localhost:3025'];
+
+  console.log('Origens CORS permitidas:', corsOrigins);
+
+  // Habilitar CORS para as origens configuradas
   app.enableCors({
-    origin: ['http://localhost:5173', 'http://localhost:3025', 'https://workchoque.jm2.tec.br'],
+    origin: corsOrigins,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Authorization']
   });
   
   // Habilitar validação global
