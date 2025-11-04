@@ -18,4 +18,21 @@ export class AppController {
       timestamp: new Date().toISOString()
     };
   }
+
+  @Get('health')
+  getHealth(): {
+    status: string;
+    message: string;
+    timestamp: string;
+    uptime: number;
+    environment: string;
+  } {
+    return {
+      status: 'ok',
+      message: 'Servidor está online e saudável',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development'
+    };
+  }
 }
