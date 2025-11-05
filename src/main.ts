@@ -7,9 +7,14 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
   // Configuração de CORS dinâmica baseada em variáveis de ambiente
+  // Configuração de CORS dinâmica baseada em variáveis de ambiente
+  // Remove a porta da URL para permitir acesso sem especificar a porta
   const corsOrigins = process.env.CORS_ORIGINS 
-    ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
-    : ['http://localhost:3025'];
+    ? process.env.CORS_ORIGINS.split(',').map(origin => {
+        const url = new URL(origin.trim());
+        return `${url.protocol}//${url.hostname}`; // Remove a porta
+      })
+    : ['http://localhost'];
 
   console.log('Origens CORS permitidas:', corsOrigins);
 
