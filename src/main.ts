@@ -7,24 +7,32 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
   // Configuração de CORS dinâmica baseada em variáveis de ambiente
-  // Configuração de CORS dinâmica baseada em variáveis de ambiente
-  // Remove a porta da URL para permitir acesso sem especificar a porta
   const corsOrigins = process.env.CORS_ORIGINS 
-    ? process.env.CORS_ORIGINS.split(',').map(origin => {
-        const url = new URL(origin.trim());
-        return `${url.protocol}//${url.hostname}`; // Remove a porta
-      })
-    : ['http://localhost'];
+    ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
+    : ['http://localhost:5173', 'http://localhost:3000'];
 
   console.log('Origens CORS permitidas:', corsOrigins);
 
   // Habilitar CORS para as origens configuradas
   app.enableCors({
-    origin: corsOrigins,
+    origin: function (origin, callback) {
+      // Permite requisições sem origem (como aplicativos móveis, curl, etc)
+      if (!origin) return callback(null, true);
+      
+      // Verifica se a origem está na lista de origens permitidas
+      if (corsOrigins.includes(origin) || corsOrigins.includes('*')) {
+        callback(null, true);
+      } else {
+        console.log('Origem não permitida:', origin);
+        callback(new Error('Não permitido por CORS'));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    exposedHeaders: ['Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Authorization'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204
   });
   
   // Habilitar validação global
