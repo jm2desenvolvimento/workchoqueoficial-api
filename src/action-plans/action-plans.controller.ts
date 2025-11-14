@@ -9,11 +9,12 @@ import {
   UseGuards, 
   Req, 
   Query,
-  HttpStatus
+  HttpStatus,
+  ForbiddenException
 } from '@nestjs/common';
 import { ActionPlansService } from './action-plans.service';
 import { CreateActionPlanDto } from './dto/create-action-plan.dto';
-import { UpdateActionPlanDto } from './dto/update-action-plan.dto';
+import { UpdateActionPlanDto, UpdateActionPlanWithGoalsDto } from './dto/update-action-plan.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { 
   ApiBearerAuth, 
@@ -31,7 +32,7 @@ interface RequestWithUser extends Request {
   user: {
     id: string;
     email: string;
-    // Adicione outras propriedades do usuário conforme necessário
+    role: 'master' | 'admin' | 'user';
   };
 }
 
@@ -171,6 +172,121 @@ export class ActionPlansController {
     });
   }
 
+  @Get('admin')
+  @ApiOperation({ summary: 'Listar todos os planos de ação globalmente (master/admin)' })
+  @ApiQuery({ name: 'status', required: false, isArray: true })
+  @ApiQuery({ name: 'category', required: false, isArray: true })
+  @ApiQuery({ name: 'priority', required: false, isArray: true })
+  async findAllGlobal(
+    @Req() req: RequestWithUser,
+    @Query('status') status?: string | string[],
+    @Query('category') category?: string | string[],
+    @Query('priority') priority?: string | string[],
+  ): Promise<ActionPlanWithRelations[]> {
+    const role = req.user?.role;
+    if (role !== 'master' && role !== 'admin') {
+      throw new ForbiddenException('Acesso negado');
+    }
+    const makeArray = (v?: string | string[]) => v ? (Array.isArray(v) ? v : [v]) : undefined;
+    return this.actionPlansService.findAllGlobal({
+      status: makeArray(status),
+      category: makeArray(category),
+      priority: makeArray(priority),
+    });
+  }
+
+  /**
+   * Gera automaticamente um Plano de Ação a partir de um diagnóstico concluído
+   * @param diagnosticId ID do diagnóstico
+   */
+  @Post('generate')
+  @ApiOperation({ summary: 'Gerar plano de ação automaticamente a partir de um diagnóstico' })
+  @ApiQuery({ name: 'diagnosticId', required: true })
+  @ApiResponse({ status: HttpStatus.CREATED, description: 'Plano de ação gerado ou retornado se já existir' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Parâmetros inválidos' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Não autorizado' })
+  async generateFromDiagnostic(
+    @Query('diagnosticId') diagnosticId: string,
+    @Req() req: RequestWithUser
+  ): Promise<ActionPlanWithRelations> {
+    if (!diagnosticId) {
+      throw new Error('diagnosticId é obrigatório');
+    }
+    return this.actionPlansService.generateFromDiagnostic(diagnosticId, req.user.id);
+  }
+
+  @Get('stats/global')
+  @ApiOperation({ summary: 'Estatísticas globais de planos de ação' })
+  async getGlobalStats(
+    @Req() req: any,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('companyId') companyId?: string,
+    @Query('status') status?: string | string[],
+    @Query('category') category?: string | string[],
+    @Query('priority') priority?: string | string[]
+  ) {
+    const role = req.user?.role;
+    if (role !== 'master' && role !== 'admin') {
+      throw new ForbiddenException('Acesso negado');
+    }
+    const makeArray = (v?: string | string[]) => v ? (Array.isArray(v) ? v : [v]) : undefined;
+    return this.actionPlansService.getGlobalStats({
+      from: from ? new Date(from) : undefined,
+      to: to ? new Date(to) : undefined,
+      companyId: companyId || undefined,
+      status: makeArray(status),
+      category: makeArray(category),
+      priority: makeArray(priority),
+    });
+  }
+
+  @Get('admin/users/:userId')
+  @ApiOperation({ summary: 'Listar planos de ação de um usuário (admin/master)' })
+  async listByTargetUser(
+    @Param('userId') userId: string,
+    @Req() req: any,
+    @Query('status') status?: string | string[],
+    @Query('category') category?: string | string[],
+    @Query('priority') priority?: string | string[]
+  ) {
+    const role = req.user?.role;
+    if (role !== 'master' && role !== 'admin') {
+      throw new ForbiddenException('Acesso negado');
+    }
+    const makeArray = (v?: string | string[]) => v ? (Array.isArray(v) ? v : [v]) : undefined;
+    return this.actionPlansService.findAllByUser(userId, {
+      status: makeArray(status),
+      category: makeArray(category),
+      priority: makeArray(priority),
+    });
+  }
+
+  @Get('admin/users/:userId/stats')
+  @ApiOperation({ summary: 'Estatísticas de planos de um usuário (admin/master)' })
+  async statsByTargetUser(
+    @Param('userId') userId: string,
+    @Req() req: any,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('status') status?: string | string[],
+    @Query('category') category?: string | string[],
+    @Query('priority') priority?: string | string[]
+  ) {
+    const role = req.user?.role;
+    if (role !== 'master' && role !== 'admin') {
+      throw new ForbiddenException('Acesso negado');
+    }
+    const makeArray = (v?: string | string[]) => v ? (Array.isArray(v) ? v : [v]) : undefined;
+    return this.actionPlansService.getUserStats(userId, {
+      from: from ? new Date(from) : undefined,
+      to: to ? new Date(to) : undefined,
+      status: makeArray(status),
+      category: makeArray(category),
+      priority: makeArray(priority),
+    });
+  }
+
   /**
    * Obtém um Plano de Ação pelo ID
    * @param id ID do Plano de Ação
@@ -227,7 +343,24 @@ export class ActionPlansController {
     @Param('id') id: string, 
     @Req() req: RequestWithUser
   ): Promise<ActionPlanWithRelations> {
+    const role = req.user?.role;
+    if (role === 'master' || role === 'admin') {
+      return this.actionPlansService.findOneAdmin(id);
+    }
     return this.actionPlansService.findOne(id, req.user.id);
+  }
+
+  @Get('admin/:id')
+  @ApiOperation({ summary: 'Obter detalhes do plano (admin/master)' })
+  async findOneAdmin(
+    @Param('id') id: string,
+    @Req() req: RequestWithUser
+  ): Promise<ActionPlanWithRelations> {
+    const role = req.user?.role;
+    if (role !== 'master' && role !== 'admin') {
+      throw new ForbiddenException('Acesso negado');
+    }
+    return this.actionPlansService.findOneAdmin(id);
   }
 
   /**
@@ -249,10 +382,10 @@ export class ActionPlansController {
   @ApiResponse({ status: 403, description: 'Acesso negado' })
   @ApiResponse({ status: 404, description: 'Plano de ação não encontrado' })
   @ApiParam({ name: 'id', description: 'ID do Plano de Ação' })
-  @ApiBody({ type: UpdateActionPlanDto })
+  @ApiBody({ type: UpdateActionPlanWithGoalsDto })
   async update(
     @Param('id') id: string,
-    @Body() updateActionPlanDto: UpdateActionPlanDto,
+    @Body() updateActionPlanDto: UpdateActionPlanWithGoalsDto,
     @Req() req: RequestWithUser,
   ): Promise<ActionPlanWithRelations> {
     return this.actionPlansService.update(id, updateActionPlanDto, req.user.id);

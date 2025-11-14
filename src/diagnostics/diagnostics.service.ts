@@ -48,6 +48,57 @@ export class DiagnosticsService {
 
     return diagnostic;
   }
+
+  async getAllDiagnosticsAdmin() {
+    const diagnostics = await this.prisma.diagnostic.findMany({
+      include: {
+        questionnaire: {
+          select: {
+            id: true,
+            title: true,
+            type: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        generated_at: 'desc',
+      },
+    });
+    return diagnostics;
+  }
+
+  async getDiagnosticByIdAdmin(id: string) {
+    const diagnostic = await this.prisma.diagnostic.findUnique({
+      where: { id },
+      include: {
+        questionnaire: {
+          select: {
+            id: true,
+            title: true,
+            type: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+    if (!diagnostic) {
+      throw new NotFoundException('Diagnóstico não encontrado');
+    }
+    return diagnostic;
+  }
 }
 
 

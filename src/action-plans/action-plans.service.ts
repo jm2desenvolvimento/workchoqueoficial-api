@@ -6,10 +6,47 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateActionPlanDto } from './dto/create-action-plan.dto';
-import { UpdateActionPlanDto } from './dto/update-action-plan.dto';
+import { UpdateActionPlanDto, UpdateActionPlanWithGoalsDto } from './dto/update-action-plan.dto';
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { UpdateGoalDto } from './dto/update-goal.dto';
 import { ActionPlanWithRelations } from './types/prisma.types';
+
+export type ActionPlansGlobalStats = {
+  summary: {
+    total: number;
+    active: number;
+    completed: number;
+    overdue: number;
+    canceled: number;
+  };
+  progress: {
+    avgPlanProgress: number;
+    avgGoalProgress: number;
+  };
+  goals: {
+    total: number;
+    completed: number;
+    inProgress: number;
+    pending: number;
+    overdue: number;
+  };
+  distribution: {
+    byStatus: { key: string; count: number }[];
+    byCategory: { key: string; count: number }[];
+    byPriority: { key: string; count: number }[];
+  };
+};
+
+export type ActionPlansUserStats = ActionPlansGlobalStats;
+
+export type StatsFilters = {
+  from?: Date;
+  to?: Date;
+  companyId?: string;
+  status?: string[];
+  category?: string[];
+  priority?: string[];
+};
 
 @Injectable()
 export class ActionPlansService {
@@ -118,6 +155,30 @@ data: {
     }) as unknown as ActionPlanWithRelations[];
   }
 
+  async findAllGlobal(filters?: {
+    status?: string[];
+    category?: string[];
+    priority?: string[];
+  }): Promise<ActionPlanWithRelations[]> {
+    const where: Prisma.action_planWhereInput = {
+      ...(filters?.status?.length && { status: { in: filters.status } }),
+      ...(filters?.category?.length && { category: { in: filters.category } }),
+      ...(filters?.priority?.length && { priority: { in: filters.priority } })
+    };
+
+    return this.prisma.action_plan.findMany({
+      where,
+      include: {
+        goals: true,
+        diagnostic: true,
+        user: {
+          select: { id: true, name: true, email: true }
+        }
+      },
+      orderBy: { created_at: 'desc' }
+    }) as unknown as ActionPlanWithRelations[];
+  }
+
   async findOne(id: string, userId: string): Promise<ActionPlanWithRelations> {
     const actionPlan = await this.prisma.action_plan.findUnique({
       where: { id },
@@ -145,9 +206,32 @@ data: {
     return actionPlan;
   }
 
+  async findOneAdmin(id: string): Promise<ActionPlanWithRelations> {
+    const actionPlan = await this.prisma.action_plan.findUnique({
+      where: { id },
+      include: { 
+        goals: true,
+        diagnostic: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
+    }) as unknown as ActionPlanWithRelations;
+
+    if (!actionPlan) {
+      throw new NotFoundException(`Action plan with ID "${id}" not found`);
+    }
+
+    return actionPlan;
+  }
+
   async update(
-    id: string, 
-    updateActionPlanDto: UpdateActionPlanDto, 
+    id: string,
+    updateActionPlanDto: UpdateActionPlanWithGoalsDto,
     userId: string
   ): Promise<ActionPlanWithRelations> {
     // Verificar se o usuário tem permissão para atualizar este plano
@@ -325,7 +409,7 @@ data: {
    * @param diagnosticId ID do diagnóstico
    * @param userId ID do usuário
    */
-async generateFromDiagnostic(diagnosticId: string, userId: string): Promise<ActionPlanWithRelations> {
+  async generateFromDiagnostic(diagnosticId: string, userId: string): Promise<ActionPlanWithRelations> {
   // Verificar se já existe um plano de ação para este diagnóstico
   const existingPlan = await this.prisma.action_plan.findFirst({
     where: { 
@@ -476,7 +560,49 @@ async generateFromDiagnostic(diagnosticId: string, userId: string): Promise<Acti
     // Em caso de erro, lançar exceção para ser tratada pelo controlador
     throw new Error('Falha ao gerar plano de ação. Por favor, tente novamente.');
   }
-}
+  }
+
+  async getGlobalStats(filters: StatsFilters = {}): Promise<ActionPlansGlobalStats> {
+    const now = new Date();
+    const wherePlan: Prisma.action_planWhereInput = {
+      ...(filters.from || filters.to ? { created_at: {} as any } : {}),
+      ...(filters.from ? { created_at: { gte: filters.from } } : {}),
+      ...(filters.to ? { created_at: { lte: filters.to } } : {}),
+      ...(filters.status?.length ? { status: { in: filters.status } } : {}),
+      ...(filters.category?.length ? { category: { in: filters.category } } : {}),
+      ...(filters.priority?.length ? { priority: { in: filters.priority } } : {}),
+      ...(filters.companyId ? { user: { company_id: filters.companyId } } : {}),
+    };
+
+    const [total, active, completed, canceled, overdue, avgPlanProgress, byStatus, byCategory, byPriority, goalsTotal, goalsCompleted, goalsInProgress, goalsPending, goalsOverdue, avgGoalProgress] = await Promise.all([
+      this.prisma.action_plan.count({ where: wherePlan }),
+      this.prisma.action_plan.count({ where: { ...wherePlan, status: 'ativo' as any } }).catch(() => 0),
+      this.prisma.action_plan.count({ where: { ...wherePlan, status: 'concluido' as any } }).catch(() => 0),
+      this.prisma.action_plan.count({ where: { ...wherePlan, status: 'cancelado' as any } }).catch(() => 0),
+      this.prisma.action_plan.count({ where: { ...wherePlan, due_date: { lt: now }, NOT: { status: 'concluido' as any } } }),
+      this.prisma.action_plan.aggregate({ where: wherePlan, _avg: { progress: true } }).then(r => r._avg.progress ?? 0),
+      this.prisma.action_plan.groupBy({ where: wherePlan, by: ['status'], _count: { _all: true } }).then(rows => rows.map(r => ({ key: String(r.status), count: r._count._all }))),
+      this.prisma.action_plan.groupBy({ where: wherePlan, by: ['category'], _count: { _all: true } }).then(rows => rows.map(r => ({ key: String(r.category), count: r._count._all }))),
+      this.prisma.action_plan.groupBy({ where: wherePlan, by: ['priority'], _count: { _all: true } }).then(rows => rows.map(r => ({ key: String(r.priority), count: r._count._all }))),
+      this.prisma.goal.count({ where: { action_plan: wherePlan } }),
+      this.prisma.goal.count({ where: { action_plan: wherePlan, status: 'concluida' as any } }).catch(() => 0),
+      this.prisma.goal.count({ where: { action_plan: wherePlan, status: 'andamento' as any } }).catch(() => 0),
+      this.prisma.goal.count({ where: { action_plan: wherePlan, status: 'pendente' as any } }).catch(() => 0),
+      this.prisma.goal.count({ where: { action_plan: wherePlan, due_date: { lt: now }, NOT: { status: 'concluida' as any } } }),
+      this.prisma.goal.aggregate({ where: { action_plan: wherePlan }, _avg: { progress: true } }).then(r => r._avg.progress ?? 0),
+    ]);
+
+    return {
+      summary: { total, active, completed, overdue, canceled },
+      progress: { avgPlanProgress: Number(avgPlanProgress) || 0, avgGoalProgress: Number(avgGoalProgress) || 0 },
+      goals: { total: goalsTotal, completed: goalsCompleted, inProgress: goalsInProgress, pending: goalsPending, overdue: goalsOverdue },
+      distribution: { byStatus, byCategory, byPriority },
+    };
+  }
+
+  async getUserStats(userId: string, filters: Omit<StatsFilters, 'companyId'> = {}): Promise<ActionPlansUserStats> {
+    return this.getGlobalStats({ ...filters, companyId: undefined, status: filters.status, category: filters.category, priority: filters.priority });
+  }
 
 // Métodos auxiliares
 private mapToValidCategory(category: string): 'wellness' | 'leadership' | 'development' | 'performance' | 'career' {
