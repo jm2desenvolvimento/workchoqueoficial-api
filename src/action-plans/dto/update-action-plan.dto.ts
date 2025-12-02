@@ -9,12 +9,12 @@ export class UpdateActionPlanDto extends PartialType(CreateActionPlanDto) {}
 
 // DTO de atualização que aceita todos os campos do plano + metas
 export class UpdateActionPlanWithGoalsDto extends PartialType(
-  OmitType(CreateActionPlanDto, ['goals'] as const)
+  OmitType(CreateActionPlanDto, ['goals'] as const),
 ) {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Metas do Plano de Ação',
     type: [UpdateGoalDto],
-    required: false
+    required: false,
   })
   @IsOptional()
   @ValidateNested({ each: true })

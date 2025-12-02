@@ -5,11 +5,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { QuestionnairesModule } from '../questionnaires/questionnaires.module';
 
 @Module({
-  imports: [
-    forwardRef(() => QuestionnairesModule),
-  ],
+  imports: [forwardRef(() => QuestionnairesModule)],
   controllers: [ActionPlansController],
   providers: [ActionPlansService, PrismaService],
-  exports: [ActionPlansService]
+  exports: [ActionPlansService],
 })
 export class ActionPlansModule {}

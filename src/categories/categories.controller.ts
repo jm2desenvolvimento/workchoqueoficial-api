@@ -1,4 +1,17 @@
-import { Controller, Get, Post, Body, Param, Delete, Put, Query, UseGuards, Request, ParseEnumPipe, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  Put,
+  Query,
+  UseGuards,
+  Request,
+  ParseEnumPipe,
+  BadRequestException,
+} from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { category_type } from '@prisma/client';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -8,8 +21,10 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 class CategoryTypeValidationPipe extends ParseEnumPipe<typeof category_type> {
   constructor() {
     super(category_type, {
-      exceptionFactory: () => 
-        new BadRequestException(`Tipo de categoria inválido. Use: ${Object.values(category_type).join(', ')}`)
+      exceptionFactory: () =>
+        new BadRequestException(
+          `Tipo de categoria inválido. Use: ${Object.values(category_type).join(', ')}`,
+        ),
     });
   }
 }
@@ -26,10 +41,10 @@ export class CategoriesController {
 
   @Get()
   findAll(
-    @Query('type', new CategoryTypeValidationPipe()) 
-    type?: category_type
+    @Query('type', new CategoryTypeValidationPipe())
+    type?: category_type,
   ) {
-    return type 
+    return type
       ? this.categoriesService.findHierarchy(type)
       : this.categoriesService.findAll();
   }
@@ -37,7 +52,7 @@ export class CategoriesController {
   @Get('hierarchy')
   findHierarchy(
     @Query('type', new CategoryTypeValidationPipe())
-    type: category_type
+    type: category_type,
   ) {
     return this.categoriesService.findHierarchy(type);
   }
@@ -48,7 +63,10 @@ export class CategoriesController {
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() updateCategoryDto: UpdateCategoryDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateCategoryDto: UpdateCategoryDto,
+  ) {
     return this.categoriesService.update(id, updateCategoryDto);
   }
 

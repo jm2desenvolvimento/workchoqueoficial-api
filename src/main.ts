@@ -5,10 +5,10 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
   // Configuração de CORS dinâmica baseada em variáveis de ambiente
-  const corsOrigins = process.env.CORS_ORIGINS 
-    ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
+  const corsOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map((origin) => origin.trim())
     : ['http://localhost:5173', 'http://localhost:3000'];
 
   console.log('Origens CORS permitidas:', corsOrigins);
@@ -18,7 +18,7 @@ async function bootstrap() {
     origin: function (origin, callback) {
       // Permite requisições sem origem (como aplicativos móveis, curl, etc)
       if (!origin) return callback(null, true);
-      
+
       // Verifica se a origem está na lista de origens permitidas
       if (corsOrigins.includes(origin) || corsOrigins.includes('*')) {
         callback(null, true);
@@ -32,16 +32,18 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     exposedHeaders: ['Authorization'],
     preflightContinue: false,
-    optionsSuccessStatus: 204
+    optionsSuccessStatus: 204,
   });
-  
+
   // Habilitar validação global
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    forbidNonWhitelisted: true,
-    transform: true,
-  }));
-  
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
+
   // Configurar prefixo global para todas as rotas (DEPOIS do CORS)
   app.setGlobalPrefix('api');
 
@@ -55,7 +57,7 @@ async function bootstrap() {
       'access-token',
     )
     .build();
-  
+
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document, {
     swaggerOptions: {
@@ -63,10 +65,14 @@ async function bootstrap() {
       operationsSorter: 'alpha',
     },
   });
-  
+
   await app.listen(process.env.PORT ?? 3000);
-  console.log(`📚 Documentação da API disponível em: http://localhost:${process.env.PORT ?? 3000}/api/docs`);
+  console.log(
+    `📚 Documentação da API disponível em: http://localhost:${process.env.PORT ?? 3000}/api/docs`,
+  );
   console.log(`🚀 Servidor rodando na porta ${process.env.PORT ?? 3000}`);
-  console.log(`📡 Rotas disponíveis em: http://localhost:${process.env.PORT ?? 3000}/api`);
+  console.log(
+    `📡 Rotas disponíveis em: http://localhost:${process.env.PORT ?? 3000}/api`,
+  );
 }
 bootstrap();

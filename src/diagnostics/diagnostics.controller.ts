@@ -1,4 +1,11 @@
-import { Controller, Get, UseGuards, Request, Param, ForbiddenException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  UseGuards,
+  Request,
+  Param,
+  ForbiddenException,
+} from '@nestjs/common';
 import { DiagnosticsService } from './diagnostics.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 

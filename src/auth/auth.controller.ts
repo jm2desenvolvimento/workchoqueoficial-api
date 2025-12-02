@@ -1,4 +1,16 @@
-import { Controller, Post, Body, UseGuards, Get, Request, Req, UnauthorizedException, Query, Param, Put } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Get,
+  Request,
+  Req,
+  UnauthorizedException,
+  Query,
+  Param,
+  Put,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuditService } from './audit.service';
 import { LoginDto } from './dto/login.dto';
@@ -9,16 +21,19 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 export class AuthController {
   constructor(
     private authService: AuthService,
-    private auditService: AuditService
+    private auditService: AuditService,
   ) {}
 
   @Post('login')
   async login(@Body() loginDto: LoginDto, @Req() req: any) {
     const requestInfo = {
-      ip: req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'],
-      userAgent: req.headers['user-agent']
+      ip:
+        req.ip ||
+        req.connection.remoteAddress ||
+        req.headers['x-forwarded-for'],
+      userAgent: req.headers['user-agent'],
     };
-    
+
     return this.authService.login(loginDto, requestInfo);
   }
 
@@ -51,13 +66,15 @@ export class AuthController {
   async updateUserPermissions(
     @Param('id') userId: string,
     @Body() body: { permissions: string[] },
-    @Request() req
+    @Request() req,
   ) {
     // Only allow masters to update user permissions
     if (req.user.role !== 'master') {
-      throw new UnauthorizedException('Apenas usuários Master podem editar permissões');
+      throw new UnauthorizedException(
+        'Apenas usuários Master podem editar permissões',
+      );
     }
-    
+
     return this.authService.updateUserPermissions(userId, body.permissions);
   }
 
@@ -74,7 +91,7 @@ export class AuthController {
     if (req.user.role !== 'admin' && req.user.role !== 'master') {
       throw new UnauthorizedException('Acesso negado');
     }
-    
+
     const userId = req.params.id;
     return this.authService.getUserActivityStats(userId);
   }
@@ -83,12 +100,17 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('audit/stats')
-  async getAuditStats(@Request() req, @Query('period') period?: '24h' | '7d' | '30d') {
+  async getAuditStats(
+    @Request() req,
+    @Query('period') period?: '24h' | '7d' | '30d',
+  ) {
     // Only allow users with audit view permission
     if (req.user.role !== 'admin' && req.user.role !== 'master') {
-      throw new UnauthorizedException('Acesso negado - Permissão auditoria.view necessária');
+      throw new UnauthorizedException(
+        'Acesso negado - Permissão auditoria.view necessária',
+      );
     }
-    
+
     return this.auditService.getAuditStats(period);
   }
 
@@ -102,11 +124,13 @@ export class AuthController {
     @Query('action') action?: string,
     @Query('ipAddress') ipAddress?: string,
     @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string
+    @Query('endDate') endDate?: string,
   ) {
     // Only allow users with audit view permission
     if (req.user.role !== 'admin' && req.user.role !== 'master') {
-      throw new UnauthorizedException('Acesso negado - Permissão auditoria.view necessária');
+      throw new UnauthorizedException(
+        'Acesso negado - Permissão auditoria.view necessária',
+      );
     }
 
     return this.auditService.getAuditLogs({
@@ -116,7 +140,7 @@ export class AuthController {
       action,
       ipAddress,
       startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined
+      endDate: endDate ? new Date(endDate) : undefined,
     });
   }
 
@@ -129,11 +153,13 @@ export class AuthController {
     @Query('userId') userId?: string,
     @Query('status') status?: string,
     @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string
+    @Query('endDate') endDate?: string,
   ) {
     // Only allow users with audit view permission
     if (req.user.role !== 'admin' && req.user.role !== 'master') {
-      throw new UnauthorizedException('Acesso negado - Permissão auditoria.view necessária');
+      throw new UnauthorizedException(
+        'Acesso negado - Permissão auditoria.view necessária',
+      );
     }
 
     return this.auditService.getLoginHistory({
@@ -142,7 +168,7 @@ export class AuthController {
       userId,
       status,
       startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined
+      endDate: endDate ? new Date(endDate) : undefined,
     });
   }
 
@@ -150,11 +176,13 @@ export class AuthController {
   @Get('audit/security-alerts')
   async getSecurityAlerts(
     @Request() req,
-    @Query('status') status?: 'new' | 'investigating' | 'resolved'
+    @Query('status') status?: 'new' | 'investigating' | 'resolved',
   ) {
     // Only allow users with audit view permission
     if (req.user.role !== 'admin' && req.user.role !== 'master') {
-      throw new UnauthorizedException('Acesso negado - Permissão auditoria.view necessária');
+      throw new UnauthorizedException(
+        'Acesso negado - Permissão auditoria.view necessária',
+      );
     }
 
     return this.auditService.getSecurityAlerts(status);
@@ -165,11 +193,13 @@ export class AuthController {
   async updateSecurityAlertStatus(
     @Request() req,
     @Param('id') alertId: string,
-    @Body() body: { status: 'new' | 'investigating' | 'resolved' }
+    @Body() body: { status: 'new' | 'investigating' | 'resolved' },
   ) {
     // Only allow users with audit view permission
     if (req.user.role !== 'admin' && req.user.role !== 'master') {
-      throw new UnauthorizedException('Acesso negado - Permissão auditoria.view necessária');
+      throw new UnauthorizedException(
+        'Acesso negado - Permissão auditoria.view necessária',
+      );
     }
 
     return this.auditService.updateSecurityAlertStatus(alertId, body.status);

@@ -10,50 +10,50 @@ export class Goal {
   @ApiProperty({ description: 'Descrição detalhada da meta', required: false })
   description?: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Status da meta',
-    enum: ['pendente', 'em_andamento', 'concluida', 'cancelada']
+    enum: ['pendente', 'em_andamento', 'concluida', 'cancelada'],
   })
   status: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Prioridade da meta',
-    enum: ['baixa', 'media', 'alta']
+    enum: ['baixa', 'media', 'alta'],
   })
   priority: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Progresso da meta (0-100)',
     minimum: 0,
-    maximum: 100
+    maximum: 100,
   })
   progress: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Data de início da meta',
     type: 'string',
-    format: 'date-time'
+    format: 'date-time',
   })
   start_date?: Date;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Data de conclusão prevista',
     type: 'string',
-    format: 'date-time'
+    format: 'date-time',
   })
   due_date?: Date;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Data de criação',
     type: 'string',
-    format: 'date-time'
+    format: 'date-time',
   })
   created_at: Date;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Data da última atualização',
     type: 'string',
-    format: 'date-time'
+    format: 'date-time',
   })
   updated_at: Date;
 }

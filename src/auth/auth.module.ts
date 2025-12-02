@@ -16,15 +16,21 @@ import { NotificationsService } from '../notifications/notifications.service';
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET') || 'your-secret-key',
-        signOptions: { 
-          expiresIn: configService.get<number>('JWT_EXPIRES_IN') || 86400 // 24h em segundos
+        signOptions: {
+          expiresIn: configService.get<number>('JWT_EXPIRES_IN') || 86400, // 24h em segundos
         },
       }),
       inject: [ConfigService],
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuditService, JwtStrategy, PrismaService, NotificationsService],
+  providers: [
+    AuthService,
+    AuditService,
+    JwtStrategy,
+    PrismaService,
+    NotificationsService,
+  ],
   exports: [AuthService, AuditService],
 })
 export class AuthModule {}

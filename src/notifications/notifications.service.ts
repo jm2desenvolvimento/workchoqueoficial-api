@@ -29,13 +29,13 @@ export class NotificationsService {
           created_by: data.createdBy,
           title: data.title,
           message: data.message,
-          type: data.type as any || 'info',
-          priority: data.priority as any || 'medium',
+          type: (data.type as any) || 'info',
+          priority: (data.priority as any) || 'medium',
           is_global: data.isGlobal || false,
           action_url: data.actionUrl,
           metadata: data.metadata ? JSON.stringify(data.metadata) : undefined,
-          expires_at: data.expiresAt
-        }
+          expires_at: data.expiresAt,
+        },
       });
     } catch (error) {
       console.error('Error creating notification:', error);
@@ -47,27 +47,27 @@ export class NotificationsService {
   async getForUser(userId: string, role: string, limit = 20, offset = 0) {
     try {
       const now = new Date();
-      
+
       return await this.prisma.notification.findMany({
         where: {
           OR: [
             { user_id: userId }, // Notificações específicas para o usuário
             { role: role as any }, // Notificações para o role do usuário
-            { is_global: true } // Notificações globais
+            { is_global: true }, // Notificações globais
           ],
           AND: {
             OR: [
               { expires_at: null }, // Sem expiração
-              { expires_at: { gt: now } } // Não expiradas
-            ]
-          }
+              { expires_at: { gt: now } }, // Não expiradas
+            ],
+          },
         },
         orderBy: [
           { priority: 'desc' }, // Urgentes primeiro
-          { created_at: 'desc' } // Mais recentes primeiro
+          { created_at: 'desc' }, // Mais recentes primeiro
         ],
         take: limit,
-        skip: offset
+        skip: offset,
       });
     } catch (error) {
       console.error('Error getting notifications:', error);
@@ -79,22 +79,15 @@ export class NotificationsService {
   async getUnreadCount(userId: string, role: string) {
     try {
       const now = new Date();
-      
+
       return await this.prisma.notification.count({
         where: {
-          OR: [
-            { user_id: userId },
-            { role: role as any },
-            { is_global: true }
-          ],
+          OR: [{ user_id: userId }, { role: role as any }, { is_global: true }],
           AND: {
             is_read: false,
-            OR: [
-              { expires_at: null },
-              { expires_at: { gt: now } }
-            ]
-          }
-        }
+            OR: [{ expires_at: null }, { expires_at: { gt: now } }],
+          },
+        },
       });
     } catch (error) {
       console.error('Error getting unread count:', error);
@@ -103,19 +96,22 @@ export class NotificationsService {
   }
 
   // Buscar notificações enviadas por um usuário
-  async getSentByUser(userId: string, filters: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    filter?: string;
-  }) {
+  async getSentByUser(
+    userId: string,
+    filters: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      filter?: string;
+    },
+  ) {
     try {
       const { page = 1, limit = 10, search = '', filter = 'all' } = filters;
       const offset = (page - 1) * limit;
 
       // Construir condições de busca
       const whereConditions: any = {
-        created_by: userId
+        created_by: userId,
       };
 
       // Filtro por tipo
@@ -127,7 +123,7 @@ export class NotificationsService {
       if (search) {
         whereConditions.OR = [
           { title: { contains: search, mode: 'insensitive' } },
-          { message: { contains: search, mode: 'insensitive' } }
+          { message: { contains: search, mode: 'insensitive' } },
         ];
       }
 
@@ -135,10 +131,7 @@ export class NotificationsService {
       const [notifications, total] = await Promise.all([
         this.prisma.notification.findMany({
           where: whereConditions,
-          orderBy: [
-            { priority: 'desc' },
-            { created_at: 'desc' }
-          ],
+          orderBy: [{ priority: 'desc' }, { created_at: 'desc' }],
           take: limit,
           skip: offset,
           include: {
@@ -147,22 +140,22 @@ export class NotificationsService {
                 id: true,
                 name: true,
                 email: true,
-                role: true
-              }
+                role: true,
+              },
             },
             creator: {
               select: {
                 id: true,
                 name: true,
                 email: true,
-                role: true
-              }
-            }
-          }
+                role: true,
+              },
+            },
+          },
         }),
         this.prisma.notification.count({
-          where: whereConditions
-        })
+          where: whereConditions,
+        }),
       ]);
 
       return {
@@ -170,7 +163,7 @@ export class NotificationsService {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / limit),
       };
     } catch (error) {
       console.error('Error getting sent notifications:', error);
@@ -179,7 +172,7 @@ export class NotificationsService {
         total: 0,
         page: 1,
         limit: 10,
-        totalPages: 0
+        totalPages: 0,
       };
     }
   }
@@ -194,9 +187,9 @@ export class NotificationsService {
           OR: [
             { user_id: userId },
             { is_global: true },
-            { role: { not: null } } // Role-based notifications
-          ]
-        }
+            { role: { not: null } }, // Role-based notifications
+          ],
+        },
       });
 
       if (!notification) {
@@ -207,8 +200,8 @@ export class NotificationsService {
         where: { id: notificationId },
         data: {
           is_read: true,
-          read_at: new Date()
-        }
+          read_at: new Date(),
+        },
       });
     } catch (error) {
       console.error('Error marking notification as read:', error);
@@ -220,26 +213,19 @@ export class NotificationsService {
   async markAllAsRead(userId: string, role: string) {
     try {
       const now = new Date();
-      
+
       return await this.prisma.notification.updateMany({
         where: {
-          OR: [
-            { user_id: userId },
-            { role: role as any },
-            { is_global: true }
-          ],
+          OR: [{ user_id: userId }, { role: role as any }, { is_global: true }],
           AND: {
             is_read: false,
-            OR: [
-              { expires_at: null },
-              { expires_at: { gt: now } }
-            ]
-          }
+            OR: [{ expires_at: null }, { expires_at: { gt: now } }],
+          },
         },
         data: {
           is_read: true,
-          read_at: now
-        }
+          read_at: now,
+        },
       });
     } catch (error) {
       console.error('Error marking all as read:', error);
@@ -251,7 +237,7 @@ export class NotificationsService {
   async delete(notificationId: string) {
     try {
       return await this.prisma.notification.delete({
-        where: { id: notificationId }
+        where: { id: notificationId },
       });
     } catch (error) {
       console.error('Error deleting notification:', error);
@@ -263,13 +249,13 @@ export class NotificationsService {
   async cleanupExpired() {
     try {
       const now = new Date();
-      
+
       return await this.prisma.notification.deleteMany({
         where: {
           expires_at: {
-            lt: now
-          }
-        }
+            lt: now,
+          },
+        },
       });
     } catch (error) {
       console.error('Error cleaning up notifications:', error);
@@ -280,7 +266,11 @@ export class NotificationsService {
   // ==================== MÉTODOS DE CONVENIÊNCIA ====================
 
   // Notificar login suspeito
-  async notifySuspiciousLogin(userId: string, details: any, createdBy?: string) {
+  async notifySuspiciousLogin(
+    userId: string,
+    details: any,
+    createdBy?: string,
+  ) {
     return await this.create({
       userId,
       createdBy,
@@ -288,12 +278,17 @@ export class NotificationsService {
       message: `Detectamos um login suspeito em sua conta. IP: ${details.ip}, Dispositivo: ${details.device}`,
       type: 'security',
       priority: 'high',
-      metadata: details
+      metadata: details,
     });
   }
 
   // Notificar nova atividade para admins
-  async notifyAdminsNewActivity(activityType: string, userId: string, details: any, createdBy?: string) {
+  async notifyAdminsNewActivity(
+    activityType: string,
+    userId: string,
+    details: any,
+    createdBy?: string,
+  ) {
     return await this.create({
       role: 'admin',
       createdBy,
@@ -301,31 +296,41 @@ export class NotificationsService {
       message: `Usuário realizou: ${activityType}`,
       type: 'info',
       priority: 'low',
-      metadata: { userId, activityType, ...details }
+      metadata: { userId, activityType, ...details },
     });
   }
 
   // Notificar sistema para masters
-  async notifyMastersSystemEvent(title: string, message: string, type: 'info' | 'warning' | 'error' = 'info', createdBy?: string) {
+  async notifyMastersSystemEvent(
+    title: string,
+    message: string,
+    type: 'info' | 'warning' | 'error' = 'info',
+    createdBy?: string,
+  ) {
     return await this.create({
       role: 'master',
       createdBy,
       title,
       message,
       type,
-      priority: type === 'error' ? 'urgent' : 'medium'
+      priority: type === 'error' ? 'urgent' : 'medium',
     });
   }
 
   // Notificação global para todos os usuários
-  async notifyAllUsers(title: string, message: string, type: 'info' | 'warning' | 'success' = 'info', createdBy?: string) {
+  async notifyAllUsers(
+    title: string,
+    message: string,
+    type: 'info' | 'warning' | 'success' = 'info',
+    createdBy?: string,
+  ) {
     return await this.create({
       isGlobal: true,
       createdBy,
       title,
       message,
       type,
-      priority: 'medium'
+      priority: 'medium',
     });
   }
 
@@ -339,30 +344,30 @@ export class NotificationsService {
       const [total, unread, byType, byPriority] = await Promise.all([
         // Total de notificações
         this.prisma.notification.count(),
-        
+
         // Não lidas
         this.prisma.notification.count({
-          where: { is_read: false }
+          where: { is_read: false },
         }),
-        
+
         // Por tipo
         this.prisma.notification.groupBy({
           by: ['type'],
-          _count: true
+          _count: true,
         }),
-        
+
         // Por prioridade
         this.prisma.notification.groupBy({
           by: ['priority'],
-          _count: true
-        })
+          _count: true,
+        }),
       ]);
 
       return {
         total,
         unread,
         by_type: byType,
-        by_priority: byPriority
+        by_priority: byPriority,
       };
     } catch (error) {
       console.error('Error getting notification stats:', error);
@@ -370,7 +375,7 @@ export class NotificationsService {
         total: 0,
         unread: 0,
         by_type: [],
-        by_priority: []
+        by_priority: [],
       };
     }
   }

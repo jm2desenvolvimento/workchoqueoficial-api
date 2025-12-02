@@ -1,11 +1,25 @@
 import { Prisma } from '@prisma/client';
 
 // Tipos para os enums
-export type GoalStatus = 'pendente' | 'em_andamento' | 'concluida' | 'cancelada';
+export type GoalStatus =
+  | 'pendente'
+  | 'em_andamento'
+  | 'concluida'
+  | 'cancelada';
 export type GoalPriority = 'baixa' | 'media' | 'alta';
-export type PlanStatus = 'rascunho' | 'em_andamento' | 'pausado' | 'concluido' | 'cancelado';
+export type PlanStatus =
+  | 'rascunho'
+  | 'em_andamento'
+  | 'pausado'
+  | 'concluido'
+  | 'cancelado';
 export type PlanPriority = 'baixa' | 'media' | 'alta';
-export type PlanCategory = 'leadership' | 'wellness' | 'development' | 'performance' | 'career';
+export type PlanCategory =
+  | 'leadership'
+  | 'wellness'
+  | 'development'
+  | 'performance'
+  | 'career';
 
 // Tipos de retorno
 export type ActionPlanWithRelations = Prisma.action_planGetPayload<{

@@ -1,11 +1,25 @@
 import { action_plan, goal } from '@prisma/client';
 
 // Tipos para os enums
-export type GoalStatus = 'pendente' | 'em_andamento' | 'concluida' | 'cancelada';
+export type GoalStatus =
+  | 'pendente'
+  | 'em_andamento'
+  | 'concluida'
+  | 'cancelada';
 export type GoalPriority = 'baixa' | 'media' | 'alta';
-export type PlanStatus = 'rascunho' | 'em_andamento' | 'pausado' | 'concluido' | 'cancelado';
+export type PlanStatus =
+  | 'rascunho'
+  | 'em_andamento'
+  | 'pausado'
+  | 'concluido'
+  | 'cancelado';
 export type PlanPriority = 'baixa' | 'media' | 'alta';
-export type PlanCategory = 'leadership' | 'wellness' | 'development' | 'performance' | 'career';
+export type PlanCategory =
+  | 'leadership'
+  | 'wellness'
+  | 'development'
+  | 'performance'
+  | 'career';
 
 // Tipos de retorno
 export type ActionPlanWithRelations = action_plan & {
@@ -53,7 +67,8 @@ export interface ActionPlanCreateInput {
   goals?: GoalCreateInput[];
 }
 
-export interface ActionPlanUpdateInput extends Partial<Omit<ActionPlanCreateInput, 'user_id' | 'goals'>> {
+export interface ActionPlanUpdateInput
+  extends Partial<Omit<ActionPlanCreateInput, 'user_id' | 'goals'>> {
   goals?: Array<{
     id?: string;
     title: string;

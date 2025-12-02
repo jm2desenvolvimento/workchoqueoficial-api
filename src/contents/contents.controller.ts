@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards, ForbiddenException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  Req,
+  UseGuards,
+  ForbiddenException,
+} from '@nestjs/common';
 import { ContentsService } from './contents.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateContentDto } from './dto/create-content.dto';
@@ -60,17 +72,25 @@ export class ContentsController {
   async create(@Req() req: any, @Body() data: CreateContentDto) {
     const role = req.user?.role;
     if (role !== 'admin' && role !== 'master') {
-      throw new ForbiddenException('Apenas administradores podem criar conteúdos');
+      throw new ForbiddenException(
+        'Apenas administradores podem criar conteúdos',
+      );
     }
     const userId = req.user?.id ?? req.user?.sub;
     return this.contentsService.create(data, userId);
   }
 
   @Put(':id')
-  async update(@Req() req: any, @Param('id') id: string, @Body() data: UpdateContentDto) {
+  async update(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() data: UpdateContentDto,
+  ) {
     const role = req.user?.role;
     if (role !== 'admin' && role !== 'master') {
-      throw new ForbiddenException('Apenas administradores podem editar conteúdos');
+      throw new ForbiddenException(
+        'Apenas administradores podem editar conteúdos',
+      );
     }
     return this.contentsService.update(id, data);
   }
@@ -79,7 +99,9 @@ export class ContentsController {
   async remove(@Req() req: any, @Param('id') id: string) {
     const role = req.user?.role;
     if (role !== 'admin' && role !== 'master') {
-      throw new ForbiddenException('Apenas administradores podem excluir conteúdos');
+      throw new ForbiddenException(
+        'Apenas administradores podem excluir conteúdos',
+      );
     }
     return this.contentsService.remove(id);
   }

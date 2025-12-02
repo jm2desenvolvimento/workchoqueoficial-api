@@ -6,9 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ActionPlansModule } from '../action-plans/action-plans.module';
 
 @Module({
-  imports: [
-    forwardRef(() => ActionPlansModule),
-  ],
+  imports: [forwardRef(() => ActionPlansModule)],
   controllers: [QuestionnairesController, PublicQuestionnairesController],
   providers: [QuestionnairesService, PrismaService],
   exports: [QuestionnairesService],

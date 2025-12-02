@@ -15,7 +15,7 @@ export class AppController {
     return {
       status: 'success',
       message: 'API está online e funcionando corretamente!',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   }
 
@@ -32,7 +32,7 @@ export class AppController {
       message: 'Servidor está online e saudável',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      environment: process.env.NODE_ENV || 'development'
+      environment: process.env.NODE_ENV || 'development',
     };
   }
 }

@@ -60,8 +60,8 @@ export class CategoriesService {
 
     const buildTree = (parentId: string | null = null) => {
       return categories
-        .filter(category => category.parent_id === parentId)
-        .map(category => ({
+        .filter((category) => category.parent_id === parentId)
+        .map((category) => ({
           ...category,
           children: buildTree(category.id),
         }));

@@ -24,24 +24,34 @@ export class QuestionnairesController {
   constructor(private readonly questionnairesService: QuestionnairesService) {}
 
   @Post()
-  async create(@Body() createQuestionnaireDto: CreateQuestionnaireDto, @Request() req) {
+  async create(
+    @Body() createQuestionnaireDto: CreateQuestionnaireDto,
+    @Request() req,
+  ) {
     // Verificar permissão: apenas master e admin podem criar questionários
     if (!['master', 'admin'].includes(req.user.role)) {
-      throw new ForbiddenException('Apenas masters e admins podem criar questionários');
+      throw new ForbiddenException(
+        'Apenas masters e admins podem criar questionários',
+      );
     }
 
-    return this.questionnairesService.create(createQuestionnaireDto, req.user.id);
+    return this.questionnairesService.create(
+      createQuestionnaireDto,
+      req.user.id,
+    );
   }
 
   @Get()
   async findAll(@Request() req, @Query('type') type?: string) {
-    const questionnaires = await this.questionnairesService.findAll(req.user.role);
-    
+    const questionnaires = await this.questionnairesService.findAll(
+      req.user.role,
+    );
+
     // Filtrar por tipo se especificado
     if (type) {
-      return questionnaires.filter(q => q.type === type);
+      return questionnaires.filter((q) => q.type === type);
     }
-    
+
     return questionnaires;
   }
 
@@ -63,17 +73,26 @@ export class QuestionnairesController {
   ) {
     // Verificar permissão: apenas master e admin podem editar questionários
     if (!['master', 'admin'].includes(req.user.role)) {
-      throw new ForbiddenException('Apenas masters e admins podem editar questionários');
+      throw new ForbiddenException(
+        'Apenas masters e admins podem editar questionários',
+      );
     }
 
-    return this.questionnairesService.update(id, updateQuestionnaireDto, req.user.id, req.user.role);
+    return this.questionnairesService.update(
+      id,
+      updateQuestionnaireDto,
+      req.user.id,
+      req.user.role,
+    );
   }
 
   @Delete(':id')
   async remove(@Param('id') id: string, @Request() req) {
     // Verificar permissão: apenas master pode deletar questionários
     if (req.user.role !== 'master') {
-      throw new ForbiddenException('Apenas masters podem deletar questionários');
+      throw new ForbiddenException(
+        'Apenas masters podem deletar questionários',
+      );
     }
 
     return this.questionnairesService.remove(id, req.user.id, req.user.role);
@@ -85,7 +104,11 @@ export class QuestionnairesController {
     @Body() responseDto: ResponseQuestionnaireDto,
     @Request() req,
   ) {
-    return this.questionnairesService.respond(questionnaireId, responseDto, req.user.id);
+    return this.questionnairesService.respond(
+      questionnaireId,
+      responseDto,
+      req.user.id,
+    );
   }
 
   @Post(':id/transfer')
@@ -94,7 +117,11 @@ export class QuestionnairesController {
     @Body() responseDto: ResponseQuestionnaireDto,
     @Request() req,
   ) {
-    return this.questionnairesService.transferFromPublic(questionnaireId, responseDto, req.user.id);
+    return this.questionnairesService.transferFromPublic(
+      questionnaireId,
+      responseDto,
+      req.user.id,
+    );
   }
 
   @Get('my/responses')
@@ -103,18 +130,29 @@ export class QuestionnairesController {
   }
 
   @Get(':id/responses')
-  async getQuestionnaireResponses(@Param('id') questionnaireId: string, @Request() req) {
-    return this.questionnairesService.getQuestionnaireResponses(questionnaireId, req.user.role);
+  async getQuestionnaireResponses(
+    @Param('id') questionnaireId: string,
+    @Request() req,
+  ) {
+    return this.questionnairesService.getQuestionnaireResponses(
+      questionnaireId,
+      req.user.role,
+    );
   }
-
 
   @Patch(':id/toggle-active')
   async toggleActive(@Param('id') id: string, @Request() req) {
     // Verificar permissão: apenas master e admin podem ativar/desativar questionários
     if (!['master', 'admin'].includes(req.user.role)) {
-      throw new ForbiddenException('Apenas masters e admins podem ativar/desativar questionários');
+      throw new ForbiddenException(
+        'Apenas masters e admins podem ativar/desativar questionários',
+      );
     }
 
-    return this.questionnairesService.toggleActive(id, req.user.id, req.user.role);
+    return this.questionnairesService.toggleActive(
+      id,
+      req.user.id,
+      req.user.role,
+    );
   }
 }

@@ -13,6 +13,8 @@ import { ActivityTrackingMiddleware } from './auth/middleware/activity-tracking.
 import { ActionPlansModule } from './action-plans/action-plans.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ContentsModule } from './contents/contents.module';
+import { ChatbotModule } from './chatbot/chatbot.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -27,6 +29,8 @@ import { ContentsModule } from './contents/contents.module';
     ActionPlansModule,
     CategoriesModule,
     ContentsModule,
+    ChatbotModule,
+    ReportsModule,
   ],
   controllers: [AppController, AiController],
   providers: [AppService, PrismaService],
@@ -35,7 +39,15 @@ export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(ActivityTrackingMiddleware)
-      .exclude('/api/auth/login', '/api/auth/register', '/health', '/favicon.ico', '/', '/robots.txt', '/sitemap.xml')
+      .exclude(
+        '/api/auth/login',
+        '/api/auth/register',
+        '/health',
+        '/favicon.ico',
+        '/',
+        '/robots.txt',
+        '/sitemap.xml',
+      )
       .forRoutes('*'); // Apply to all routes except auth routes
   }
 }

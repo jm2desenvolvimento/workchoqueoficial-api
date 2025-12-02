@@ -9,24 +9,3 @@ import { PrismaService } from '../prisma/prisma.service';
   exports: [DiagnosticsService],
 })
 export class DiagnosticsModule {}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

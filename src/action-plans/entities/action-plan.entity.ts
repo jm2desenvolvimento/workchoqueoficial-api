@@ -14,69 +14,69 @@ export class ActionPlan {
   @ApiProperty({ description: 'Descrição detalhada do plano', required: false })
   description?: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Categoria do plano',
-    enum: ['leadership', 'wellness', 'development', 'performance', 'career']
+    enum: ['leadership', 'wellness', 'development', 'performance', 'career'],
   })
   category: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Status do plano',
-    enum: ['rascunho', 'em_andamento', 'pausado', 'concluido', 'cancelado']
+    enum: ['rascunho', 'em_andamento', 'pausado', 'concluido', 'cancelado'],
   })
   status: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Prioridade do plano',
-    enum: ['baixa', 'media', 'alta']
+    enum: ['baixa', 'media', 'alta'],
   })
   priority: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Progresso geral do plano (0-100)',
     minimum: 0,
-    maximum: 100
+    maximum: 100,
   })
   progress: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Data de início do plano',
     type: 'string',
-    format: 'date-time'
+    format: 'date-time',
   })
   start_date?: Date;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Data de conclusão prevista',
     type: 'string',
-    format: 'date-time'
+    format: 'date-time',
   })
   due_date?: Date;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'ID do diagnóstico relacionado',
-    required: false
+    required: false,
   })
   diagnostic_id?: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Data de criação',
     type: 'string',
-    format: 'date-time'
+    format: 'date-time',
   })
   created_at: Date;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Data da última atualização',
     type: 'string',
-    format: 'date-time'
+    format: 'date-time',
   })
   updated_at: Date;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Metas do Plano de Ação',
     type: [Goal],
-    required: false
+    required: false,
   })
   goals?: Goal[];
 }

@@ -1,35 +1,47 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CreateGoalDto } from './create-goal.dto';
-import { 
-  IsArray, 
-  IsDateString, 
-  IsIn, 
-  IsNotEmpty, 
-  IsNumber, 
-  IsOptional, 
-  IsString, 
-  IsUUID, 
-  Max, 
-  Min, 
-  ValidateIf, 
-  ValidateNested 
+import {
+  IsArray,
+  IsDateString,
+  IsIn,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+  ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
-const categories = ['leadership', 'wellness', 'development', 'performance', 'career'] as const;
-const statuses = ['rascunho', 'em_andamento', 'pausado', 'concluido', 'cancelado'] as const;
+const categories = [
+  'leadership',
+  'wellness',
+  'development',
+  'performance',
+  'career',
+] as const;
+const statuses = [
+  'rascunho',
+  'em_andamento',
+  'pausado',
+  'concluido',
+  'cancelado',
+] as const;
 const priorities = ['baixa', 'media', 'alta'] as const;
 
-type ActionPlanCategory = typeof categories[number];
-type ActionPlanStatus = typeof statuses[number];
-type ActionPlanPriority = typeof priorities[number];
+type ActionPlanCategory = (typeof categories)[number];
+type ActionPlanStatus = (typeof statuses)[number];
+type ActionPlanPriority = (typeof priorities)[number];
 
 export class CreateActionPlanDto {
   @ApiProperty({
     description: 'Título do Plano de Ação',
     example: 'Plano de Desenvolvimento Profissional',
     minLength: 3,
-    maxLength: 100
+    maxLength: 100,
   })
   @IsString()
   @IsNotEmpty({ message: 'O título é obrigatório' })
@@ -38,8 +50,9 @@ export class CreateActionPlanDto {
 
   @ApiPropertyOptional({
     description: 'Descrição detalhada do plano',
-    example: 'Plano para desenvolvimento de habilidades técnicas e comportamentais',
-    maxLength: 1000
+    example:
+      'Plano para desenvolvimento de habilidades técnicas e comportamentais',
+    maxLength: 1000,
   })
   @IsOptional()
   @IsString({ message: 'A descrição deve ser um texto' })
@@ -49,32 +62,32 @@ export class CreateActionPlanDto {
   @ApiProperty({
     description: 'Categoria do plano',
     enum: categories,
-    example: 'development'
+    example: 'development',
   })
-  @IsIn(categories, { 
-    message: `Categoria inválida. Opções válidas: ${categories.join(', ')}` 
+  @IsIn(categories, {
+    message: `Categoria inválida. Opções válidas: ${categories.join(', ')}`,
   })
   category: ActionPlanCategory;
 
   @ApiPropertyOptional({
     description: 'Status atual do plano',
     enum: statuses,
-    default: 'rascunho'
+    default: 'rascunho',
   })
   @IsOptional()
   @IsIn(statuses, {
-    message: `Status inválido. Opções válidas: ${statuses.join(', ')}`
+    message: `Status inválido. Opções válidas: ${statuses.join(', ')}`,
   })
   status?: ActionPlanStatus = 'rascunho';
 
   @ApiPropertyOptional({
     description: 'Nível de prioridade do plano',
     enum: priorities,
-    default: 'media'
+    default: 'media',
   })
   @IsOptional()
   @IsIn(priorities, {
-    message: `Prioridade inválida. Opções válidas: ${priorities.join(', ')}`
+    message: `Prioridade inválida. Opções válidas: ${priorities.join(', ')}`,
   })
   priority?: ActionPlanPriority = 'media';
 
@@ -83,7 +96,7 @@ export class CreateActionPlanDto {
     minimum: 0,
     maximum: 100,
     default: 0,
-    example: 0
+    example: 0,
   })
   @IsOptional()
   @IsNumber({}, { message: 'O progresso deve ser um número' })
@@ -95,30 +108,31 @@ export class CreateActionPlanDto {
     description: 'Data de início planejada',
     type: 'string',
     format: 'date-time',
-    example: '2023-01-15T00:00:00.000Z'
+    example: '2023-01-15T00:00:00.000Z',
   })
   @IsOptional()
   @IsDateString({}, { message: 'Data de início inválida' })
-  @ValidateIf(o => o.due_date !== undefined)
+  @ValidateIf((o) => o.due_date !== undefined)
   start_date?: Date;
 
   @ApiPropertyOptional({
     description: 'Data de conclusão prevista',
     type: 'string',
     format: 'date-time',
-    example: '2023-12-31T23:59:59.999Z'
+    example: '2023-12-31T23:59:59.999Z',
   })
   @IsOptional()
   @IsDateString({}, { message: 'Data de término inválida' })
-  @ValidateIf(o => o.start_date !== undefined, {
-    message: 'A data de início é obrigatória quando a data de término é informada'
+  @ValidateIf((o) => o.start_date !== undefined, {
+    message:
+      'A data de início é obrigatória quando a data de término é informada',
   })
   due_date?: Date;
 
   @ApiPropertyOptional({
     description: 'ID do diagnóstico relacionado (opcional)',
     format: 'uuid',
-    example: '123e4567-e89b-12d3-a456-426614174000'
+    example: '123e4567-e89b-12d3-a456-426614174000',
   })
   @IsOptional()
   @IsUUID(4, { message: 'ID de diagnóstico inválido' })
@@ -133,9 +147,9 @@ export class CreateActionPlanDto {
         description: 'Completar curso avançado de TypeScript',
         status: 'pendente',
         priority: 'alta',
-        progress: 0
-      }
-    ]
+        progress: 0,
+      },
+    ],
   })
   @IsOptional()
   @IsArray({ message: 'As metas devem ser fornecidas como um array' })

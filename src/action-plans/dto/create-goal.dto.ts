@@ -7,41 +7,41 @@ export class CreateGoalDto {
   @ApiProperty({ description: 'Descrição detalhada da meta', required: false })
   description?: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Status da meta',
     enum: ['pendente', 'em_andamento', 'concluida', 'cancelada'],
-    default: 'pendente'
+    default: 'pendente',
   })
   status?: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Prioridade da meta',
     enum: ['baixa', 'media', 'alta'],
-    default: 'media'
+    default: 'media',
   })
   priority?: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Progresso da meta (0-100)',
     minimum: 0,
     maximum: 100,
-    default: 0
+    default: 0,
   })
   progress?: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Data de início da meta',
     type: 'string',
     format: 'date-time',
-    required: false
+    required: false,
   })
   start_date?: Date;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Data de conclusão prevista',
     type: 'string',
     format: 'date-time',
-    required: false
+    required: false,
   })
   due_date?: Date;
 }

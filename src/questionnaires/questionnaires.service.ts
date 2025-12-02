@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuestionnaireDto } from './dto/create-questionnaire.dto';
 import { UpdateQuestionnaireDto } from './dto/update-questionnaire.dto';
@@ -11,7 +17,7 @@ export class QuestionnairesService {
   constructor(
     private prisma: PrismaService,
     @Inject(forwardRef(() => ActionPlansService))
-    private actionPlansService: ActionPlansService
+    private actionPlansService: ActionPlansService,
   ) {}
 
   async create(createQuestionnaireDto: CreateQuestionnaireDto, userId: string) {
@@ -28,7 +34,7 @@ export class QuestionnairesService {
     // Criar perguntas e opções
     for (const questionData of questions) {
       const { options, ...questionInfo } = questionData;
-      
+
       const question = await this.prisma.questionnaire_question.create({
         data: {
           ...questionInfo,
@@ -54,7 +60,7 @@ export class QuestionnairesService {
 
   async findAll(userRole: string) {
     const where = userRole === 'master' ? {} : { is_active: true };
-    
+
     return this.prisma.questionnaire.findMany({
       where,
       include: {
@@ -105,12 +111,19 @@ export class QuestionnairesService {
     return questionnaire;
   }
 
-  async update(id: string, updateQuestionnaireDto: UpdateQuestionnaireDto, userId: string, userRole: string) {
+  async update(
+    id: string,
+    updateQuestionnaireDto: UpdateQuestionnaireDto,
+    userId: string,
+    userRole: string,
+  ) {
     const questionnaire = await this.findOne(id);
 
     // Verificar se o usuário pode editar (master ou admin que criou)
     if (userRole !== 'master' && questionnaire.created_by !== userId) {
-      throw new ForbiddenException('Você não tem permissão para editar este questionário');
+      throw new ForbiddenException(
+        'Você não tem permissão para editar este questionário',
+      );
     }
 
     const { questions, ...questionnaireData } = updateQuestionnaireDto;
@@ -131,7 +144,7 @@ export class QuestionnairesService {
       // Criar novas perguntas
       for (const questionData of questions) {
         const { options, ...questionInfo } = questionData;
-        
+
         const question = await this.prisma.questionnaire_question.create({
           data: {
             question: questionInfo.question!,
@@ -168,7 +181,9 @@ export class QuestionnairesService {
 
     // Verificar se o usuário pode deletar (apenas master)
     if (userRole !== 'master') {
-      throw new ForbiddenException('Apenas usuários master podem deletar questionários');
+      throw new ForbiddenException(
+        'Apenas usuários master podem deletar questionários',
+      );
     }
 
     // Verificar se há respostas (evitar deletar questionários com dados)
@@ -177,7 +192,9 @@ export class QuestionnairesService {
     });
 
     if (responseCount > 0) {
-      throw new ForbiddenException('Não é possível deletar questionário com respostas existentes');
+      throw new ForbiddenException(
+        'Não é possível deletar questionário com respostas existentes',
+      );
     }
 
     await this.prisma.questionnaire.delete({
@@ -187,7 +204,11 @@ export class QuestionnairesService {
     return { message: 'Questionário deletado com sucesso' };
   }
 
-  async respond(questionnaireId: string, responseDto: ResponseQuestionnaireDto, userId: string) {
+  async respond(
+    questionnaireId: string,
+    responseDto: ResponseQuestionnaireDto,
+    userId: string,
+  ) {
     // Verificar se o questionário existe e está ativo
     const questionnaire = await this.prisma.questionnaire.findFirst({
       where: {
@@ -208,25 +229,38 @@ export class QuestionnairesService {
     }
 
     // Verificar se o usuário já respondeu este questionário
-    const existingResponse = await this.prisma.questionnaire_response.findFirst({
-      where: {
-        user_id: userId,
-        questionnaire_id: questionnaireId,
+    const existingResponse = await this.prisma.questionnaire_response.findFirst(
+      {
+        where: {
+          user_id: userId,
+          questionnaire_id: questionnaireId,
+        },
       },
-    });
+    );
 
     if (existingResponse) {
-      throw new ForbiddenException('Você já respondeu este questionário. Cada usuário pode responder apenas uma vez.');
+      throw new ForbiddenException(
+        'Você já respondeu este questionário. Cada usuário pode responder apenas uma vez.',
+      );
     }
 
     // Usar lógica comum de processamento
-    return this.processQuestionnaireResponse(questionnaireId, responseDto, userId, questionnaire);
+    return this.processQuestionnaireResponse(
+      questionnaireId,
+      responseDto,
+      userId,
+      questionnaire,
+    );
   }
 
-  async transferFromPublic(questionnaireId: string, responseDto: ResponseQuestionnaireDto, userId: string) {
+  async transferFromPublic(
+    questionnaireId: string,
+    responseDto: ResponseQuestionnaireDto,
+    userId: string,
+  ) {
     // Método especial para transferir respostas de visitantes após cadastro
     // NÃO verifica duplicatas pois é uma transferência legítima
-    
+
     // Verificar se o questionário existe e está ativo
     const questionnaire = await this.prisma.questionnaire.findFirst({
       where: {
@@ -263,23 +297,28 @@ export class QuestionnairesService {
     });
 
     // Agora processar como se fosse a primeira vez
-    return this.processQuestionnaireResponse(questionnaireId, responseDto, userId, questionnaire);
+    return this.processQuestionnaireResponse(
+      questionnaireId,
+      responseDto,
+      userId,
+      questionnaire,
+    );
   }
 
   // Extrair lógica comum de processamento
   private async processQuestionnaireResponse(
-    questionnaireId: string, 
-    responseDto: ResponseQuestionnaireDto, 
-    userId: string, 
-    questionnaire: any
+    questionnaireId: string,
+    responseDto: ResponseQuestionnaireDto,
+    userId: string,
+    questionnaire: any,
   ) {
     // Validar e salvar respostas
     const responses: any[] = [];
     let totalScore = 0;
 
     for (const [questionId, answer] of Object.entries(responseDto.responses)) {
-      const question = questionnaire.questions.find(q => q.id === questionId);
-      
+      const question = questionnaire.questions.find((q) => q.id === questionId);
+
       if (!question) {
         throw new NotFoundException(`Pergunta ${questionId} não encontrada`);
       }
@@ -314,15 +353,15 @@ export class QuestionnairesService {
     let processingDiagnostic;
     try {
       processingDiagnostic = await this.prisma.diagnostic.create({
-      data: {
-        questionnaire_id: questionnaireId,
-        user_id: userId,
-        analysis_data: {
+        data: {
+          questionnaire_id: questionnaireId,
+          user_id: userId,
+          analysis_data: {
             basic_score: basicScore,
-          category: category,
-          totalQuestions: totalQuestions,
-          answeredQuestions: responses.length
-        },
+            category: category,
+            totalQuestions: totalQuestions,
+            answeredQuestions: responses.length,
+          },
           insights: ['Analisando respostas...'],
           recommendations: ['Gerando recomendações...'],
           areas_focus: ['Processando...'],
@@ -333,7 +372,7 @@ export class QuestionnairesService {
 
       // Gerar diagnóstico inteligente com IA
       const aiDiagnostic = await generateDiagnostic(questionnaire, responses);
-      
+
       // Atualizar diagnóstico com resultado da IA
       const diagnostic = await this.prisma.diagnostic.update({
         where: { id: processingDiagnostic.id },
@@ -343,7 +382,7 @@ export class QuestionnairesService {
             category: category,
             totalQuestions: totalQuestions,
             answeredQuestions: responses.length,
-            ai_analysis: aiDiagnostic.analysis_summary
+            ai_analysis: aiDiagnostic.analysis_summary,
           },
           insights: aiDiagnostic.insights,
           recommendations: aiDiagnostic.recommendations,
@@ -354,19 +393,22 @@ export class QuestionnairesService {
         },
         include: {
           questionnaire: true,
-          user: true
-        }
+          user: true,
+        },
       });
 
       // Gerar Plano de Ação automaticamente a partir do diagnóstico
       try {
-        await this.actionPlansService.generateFromDiagnostic(diagnostic.id, userId);
+        await this.actionPlansService.generateFromDiagnostic(
+          diagnostic.id,
+          userId,
+        );
       } catch (error) {
         console.error('Erro ao gerar Plano de Ação automaticamente:', error);
         // Não interrompemos o fluxo em caso de erro na geração do plano de ação
       }
 
-    return {
+      return {
         message: 'Diagnóstico transferido e processado com sucesso',
         diagnostic: {
           id: diagnostic.id,
@@ -379,13 +421,15 @@ export class QuestionnairesService {
         responses: responses.length,
         completedAt: new Date(),
       };
-      
     } catch (aiError) {
-      console.error('Erro na análise IA durante transferência, usando fallback básico:', aiError);
-      
+      console.error(
+        'Erro na análise IA durante transferência, usando fallback básico:',
+        aiError,
+      );
+
       // Fallback para lógica básica em caso de erro da IA
       const basicInsights = this.generateBasicInsights(basicScore, category);
-      
+
       // Tentar atualizar diagnóstico existente ou criar novo se não existir
       let diagnostic;
       try {
@@ -398,7 +442,7 @@ export class QuestionnairesService {
                 category: category,
                 totalQuestions: totalQuestions,
                 answeredQuestions: responses.length,
-                error: 'IA indisponível, usando análise básica'
+                error: 'IA indisponível, usando análise básica',
               },
               insights: basicInsights.recommendations,
               recommendations: basicInsights.recommendations,
@@ -406,7 +450,7 @@ export class QuestionnairesService {
               score_intelligent: basicScore,
               status: 'completed',
               completed_at: new Date(),
-            }
+            },
           });
         } else {
           throw new Error('Diagnóstico inicial não foi criado');
@@ -422,7 +466,7 @@ export class QuestionnairesService {
               category: category,
               totalQuestions: totalQuestions,
               answeredQuestions: responses.length,
-              error: 'IA indisponível, usando análise básica'
+              error: 'IA indisponível, usando análise básica',
             },
             insights: basicInsights.recommendations,
             recommendations: basicInsights.recommendations,
@@ -436,15 +480,15 @@ export class QuestionnairesService {
 
       return {
         message: 'Diagnóstico transferido com análise básica',
-      diagnostic: {
-        id: diagnostic.id,
+        diagnostic: {
+          id: diagnostic.id,
           score: basicScore,
-        category: category,
-        insights: diagnostic.insights,
-      },
-      responses: responses.length,
-      completedAt: new Date(),
-    };
+          category: category,
+          insights: diagnostic.insights,
+        },
+        responses: responses.length,
+        completedAt: new Date(),
+      };
     }
   }
 
@@ -473,7 +517,9 @@ export class QuestionnairesService {
 
   async getQuestionnaireResponses(questionnaireId: string, userRole: string) {
     if (userRole === 'user') {
-      throw new ForbiddenException('Usuários não podem ver respostas de outros');
+      throw new ForbiddenException(
+        'Usuários não podem ver respostas de outros',
+      );
     }
 
     return this.prisma.questionnaire_response.findMany({
@@ -549,7 +595,9 @@ export class QuestionnairesService {
 
     // Verificar se o usuário pode ativar/desativar (master ou admin que criou)
     if (userRole !== 'master' && questionnaire.created_by !== userId) {
-      throw new ForbiddenException('Você não tem permissão para ativar/desativar este questionário');
+      throw new ForbiddenException(
+        'Você não tem permissão para ativar/desativar este questionário',
+      );
     }
 
     // Verificar se o questionário tem perguntas
@@ -558,7 +606,9 @@ export class QuestionnairesService {
     });
 
     if (questionCount === 0) {
-      throw new ForbiddenException('Questionário deve ter pelo menos uma pergunta para ser ativado');
+      throw new ForbiddenException(
+        'Questionário deve ter pelo menos uma pergunta para ser ativado',
+      );
     }
 
     if (questionnaire.is_active) {
@@ -592,7 +642,7 @@ export class QuestionnairesService {
     // Insights básicos - futuramente será substituído por IA
     const insights = {
       recommendations: [] as string[],
-      areas_for_improvement: [] as string[]
+      areas_for_improvement: [] as string[],
     };
 
     switch (category) {
@@ -600,33 +650,37 @@ export class QuestionnairesService {
         insights.recommendations = [
           'Continue mantendo os padrões atuais',
           'Compartilhe as melhores práticas com outras equipes',
-          'Monitore regularmente para manter a excelência'
+          'Monitore regularmente para manter a excelência',
         ];
         break;
-      
+
       case 'Bom':
         insights.recommendations = [
           'Identifique áreas específicas para melhorar',
           'Implemente feedback regular da equipe',
-          'Foque em comunicação e reconhecimento'
+          'Foque em comunicação e reconhecimento',
         ];
         insights.areas_for_improvement = ['Comunicação', 'Reconhecimento'];
         break;
-      
+
       case 'Regular':
         insights.recommendations = [
           'Priorize melhorias na comunicação',
           'Implemente programa de reconhecimento',
-          'Avalie políticas de trabalho'
+          'Avalie políticas de trabalho',
         ];
-        insights.areas_for_improvement = ['Comunicação', 'Reconhecimento', 'Ambiente de trabalho'];
+        insights.areas_for_improvement = [
+          'Comunicação',
+          'Reconhecimento',
+          'Ambiente de trabalho',
+        ];
         break;
-      
+
       case 'Crítico':
         insights.recommendations = [
           'Ação imediata necessária',
           'Revisão completa das políticas',
-          'Suporte profissional recomendado'
+          'Suporte profissional recomendado',
         ];
         insights.areas_for_improvement = ['Todas as áreas avaliadas'];
         break;

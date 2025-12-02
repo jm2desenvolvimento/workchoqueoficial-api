@@ -1,4 +1,10 @@
-import { Injectable, UnauthorizedException, ConflictException, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from './audit.service';
@@ -20,24 +26,34 @@ export class AuthService {
       where: { email },
     });
 
-    if (user && await bcrypt.compare(password, user.password_hash)) {
+    if (user && (await bcrypt.compare(password, user.password_hash))) {
       const { password_hash: _, ...result } = user;
       return result;
     }
     return null;
   }
 
-  async login(loginDto: LoginDto, requestInfo?: { ip?: string; userAgent?: string }) {
+  async login(
+    loginDto: LoginDto,
+    requestInfo?: { ip?: string; userAgent?: string },
+  ) {
     const user = await this.validateUser(loginDto.email, loginDto.password);
-    
+
     if (!user) {
       // Log failed login attempt
       if (requestInfo) {
-        await this.logFailedLogin(loginDto.email, requestInfo, 'Invalid credentials');
-        
+        await this.logFailedLogin(
+          loginDto.email,
+          requestInfo,
+          'Invalid credentials',
+        );
+
         // Verificar tentativas múltiplas de login falhado
         if (this.auditService) {
-          await this.auditService.checkFailedLoginAttempts(loginDto.email, requestInfo.ip || '');
+          await this.auditService.checkFailedLoginAttempts(
+            loginDto.email,
+            requestInfo.ip || '',
+          );
         }
       }
       throw new UnauthorizedException('Credenciais inválidas');
@@ -46,18 +62,18 @@ export class AuthService {
     // Update last_login timestamp
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { last_login: new Date() }
+      data: { last_login: new Date() },
     });
 
     // Log successful login
     try {
       console.log(`AuthService: Logging successful login for user ${user.id}`);
       const loginRecord = await this.logSuccessfulLogin(user.id, requestInfo);
-      
+
       // Log user activity
       await this.logUserActivity(user.id, 'login', undefined, undefined, {
         login_record_id: loginRecord.id,
-        ...requestInfo
+        ...requestInfo,
       });
       console.log(`AuthService: User activity logged for user ${user.id}`);
 
@@ -70,10 +86,10 @@ export class AuthService {
       // Continue with login even if logging fails
     }
 
-    const payload = { 
-      email: user.email, 
-      sub: user.id, 
-      role: user.role 
+    const payload = {
+      email: user.email,
+      sub: user.id,
+      role: user.role,
     };
 
     // Buscar permissões do usuário
@@ -123,10 +139,10 @@ export class AuthService {
     const { password_hash: _, ...userWithoutPassword } = user;
 
     // Gerar token JWT
-    const payload = { 
-      email: user.email, 
-      sub: user.id, 
-      role: user.role 
+    const payload = {
+      email: user.email,
+      sub: user.id,
+      role: user.role,
     };
 
     // Buscar permissões do usuário
@@ -186,12 +202,12 @@ export class AuthService {
       select: { allowed: true },
     });
 
-    const rolePermissionKeys = rolePermissions.map(rp => rp.permission.key);
-    const customPermissions = user?.allowed as Record<string, boolean> || {};
+    const rolePermissionKeys = rolePermissions.map((rp) => rp.permission.key);
+    const customPermissions = (user?.allowed as Record<string, boolean>) || {};
 
     // Combinar permissões da role com permissões customizadas
     const allPermissions = new Set(rolePermissionKeys);
-    
+
     // Adicionar permissões customizadas habilitadas
     Object.entries(customPermissions).forEach(([key, enabled]) => {
       if (enabled) {
@@ -231,7 +247,7 @@ export class AuthService {
           ...user,
           permissions,
         };
-      })
+      }),
     );
 
     return usersWithPermissions;
@@ -240,12 +256,12 @@ export class AuthService {
   async updateUserPermissions(userId: string, permissions: string[]) {
     // Buscar todas as permissões do sistema para criar o objeto allowed
     const allPermissions = await this.prisma.permission.findMany({
-      select: { key: true }
+      select: { key: true },
     });
 
     // Criar objeto allowed com todas as permissões
     const allowed: Record<string, boolean> = {};
-    allPermissions.forEach(permission => {
+    allPermissions.forEach((permission) => {
       allowed[permission.key] = permissions.includes(permission.key);
     });
 
@@ -260,21 +276,24 @@ export class AuthService {
         role: true,
         is_active: true,
         allowed: true,
-        updated_at: true
-      }
+        updated_at: true,
+      },
     });
 
     return {
       message: 'Permissões atualizadas com sucesso',
-      user: updatedUser
+      user: updatedUser,
     };
   }
 
   // ==================== AUDIT AND ACTIVITY TRACKING ====================
 
-  async logSuccessfulLogin(userId: string, requestInfo?: { ip?: string; userAgent?: string }) {
+  async logSuccessfulLogin(
+    userId: string,
+    requestInfo?: { ip?: string; userAgent?: string },
+  ) {
     const deviceInfo = this.parseDeviceInfo(requestInfo?.userAgent);
-    
+
     try {
       return await this.prisma.login_history.create({
         data: {
@@ -284,8 +303,8 @@ export class AuthService {
           user_agent: requestInfo?.userAgent,
           device_info: deviceInfo.device,
           browser_info: deviceInfo.browser,
-          status: 'success'
-        }
+          status: 'success',
+        },
       });
     } catch (error) {
       console.error('Error logging successful login:', error);
@@ -293,16 +312,20 @@ export class AuthService {
     }
   }
 
-  async logFailedLogin(email: string, requestInfo: { ip?: string; userAgent?: string }, reason: string) {
+  async logFailedLogin(
+    email: string,
+    requestInfo: { ip?: string; userAgent?: string },
+    reason: string,
+  ) {
     // Try to find user by email for logging purposes
     const user = await this.prisma.user.findUnique({
       where: { email },
-      select: { id: true }
+      select: { id: true },
     });
 
     if (user) {
       const deviceInfo = this.parseDeviceInfo(requestInfo.userAgent);
-      
+
       try {
         await this.prisma.login_history.create({
           data: {
@@ -313,8 +336,8 @@ export class AuthService {
             device_info: deviceInfo.device,
             browser_info: deviceInfo.browser,
             status: 'failed',
-            failure_reason: reason
-          }
+            failure_reason: reason,
+          },
         });
       } catch (error) {
         console.error('Error logging failed login:', error);
@@ -323,15 +346,17 @@ export class AuthService {
   }
 
   async logUserActivity(
-    userId: string, 
-    action: string, 
-    entityType?: string, 
-    entityId?: string, 
+    userId: string,
+    action: string,
+    entityType?: string,
+    entityId?: string,
     details?: any,
-    requestInfo?: { ip?: string; userAgent?: string }
+    requestInfo?: { ip?: string; userAgent?: string },
   ) {
     try {
-      console.log(`AuthService: Creating activity log for user ${userId}, action: ${action}`);
+      console.log(
+        `AuthService: Creating activity log for user ${userId}, action: ${action}`,
+      );
       const result = await this.prisma.user_activity_log.create({
         data: {
           user_id: userId,
@@ -340,8 +365,8 @@ export class AuthService {
           entity_id: entityId,
           details: details ? JSON.stringify(details) : undefined,
           ip_address: requestInfo?.ip,
-          user_agent: requestInfo?.userAgent
-        }
+          user_agent: requestInfo?.userAgent,
+        },
       });
       console.log(`AuthService: Activity log created with ID: ${result.id}`);
     } catch (error) {
@@ -372,45 +397,46 @@ export class AuthService {
 
   async getUserActivityStats(userId: string) {
     try {
-      const [totalActivities, recentActivities, loginStats] = await Promise.all([
-        // Total de atividades
-        this.prisma.user_activity_log.count({
-          where: { user_id: userId }
-        }),
-        
-        // Atividades recentes (últimos 7 dias)
-        this.prisma.user_activity_log.findMany({
-          where: {
-            user_id: userId,
-            created_at: {
-              gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-            }
-          },
-          orderBy: { created_at: 'desc' },
-          take: 10
-        }),
-        
-        // Estatísticas de login
-        this.prisma.login_history.findMany({
-          where: { user_id: userId },
-          orderBy: { login_at: 'desc' },
-          take: 5
-        })
-      ]);
+      const [totalActivities, recentActivities, loginStats] = await Promise.all(
+        [
+          // Total de atividades
+          this.prisma.user_activity_log.count({
+            where: { user_id: userId },
+          }),
+
+          // Atividades recentes (últimos 7 dias)
+          this.prisma.user_activity_log.findMany({
+            where: {
+              user_id: userId,
+              created_at: {
+                gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+              },
+            },
+            orderBy: { created_at: 'desc' },
+            take: 10,
+          }),
+
+          // Estatísticas de login
+          this.prisma.login_history.findMany({
+            where: { user_id: userId },
+            orderBy: { login_at: 'desc' },
+            take: 5,
+          }),
+        ],
+      );
 
       return {
         total_activities: totalActivities,
         recent_activities: recentActivities,
-        recent_logins: loginStats
+        recent_logins: loginStats,
       };
     } catch (error) {
       console.error('Error getting user activity stats:', error);
       return {
         total_activities: 0,
         recent_activities: [],
-        recent_logins: []
+        recent_logins: [],
       };
     }
   }
-
 }

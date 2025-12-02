@@ -223,6 +223,8 @@ async function createPermissions() {
     { key: 'sistema.view', name: 'Visualizar Sistema', category: 'sistema' },
     { key: 'sistema.manage', name: 'Gerenciar Sistema', category: 'sistema' },
     { key: 'backup.manage', name: 'Gerenciar Backup', category: 'backup' },
+    { key: 'agent.chat.view', name: 'Visualizar Chat do Agente', category: 'agent' },
+    { key: 'agent.chat.manage', name: 'Gerenciar Chat do Agente', category: 'agent' },
   ];
 
   for (const perm of permissions) {
@@ -396,6 +398,7 @@ async function createRolePermissions() {
     'config.view',
     'config.edit',
     'conteudo.view',
+    'agent.chat.view',
   ];
 
   // Permissões para ADMIN
@@ -432,6 +435,7 @@ async function createRolePermissions() {
     'conteudo.edit',
     'conteudo.delete',
     'conteudo.manage',
+    'agent.chat.manage',
     // Auditoria e Segurança para Admin
     'auditoria.logs.view',
     'auditoria.logs.export',

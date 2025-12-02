@@ -1,7 +1,18 @@
-import { IsString, IsOptional, IsBoolean, IsIn, IsNotEmpty } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsIn,
+  IsNotEmpty,
+} from 'class-validator';
 
-export const CATEGORY_TYPES = ['content', 'action_plan', 'achievement', 'other'] as const;
-export type CategoryType = typeof CATEGORY_TYPES[number];
+export const CATEGORY_TYPES = [
+  'content',
+  'action_plan',
+  'achievement',
+  'other',
+] as const;
+export type CategoryType = (typeof CATEGORY_TYPES)[number];
 
 export class CreateCategoryDto {
   @IsString()

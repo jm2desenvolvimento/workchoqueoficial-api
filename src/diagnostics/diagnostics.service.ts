@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -27,9 +31,9 @@ export class DiagnosticsService {
 
   async getDiagnosticById(id: string, userId: string) {
     const diagnostic = await this.prisma.diagnostic.findFirst({
-      where: { 
+      where: {
         id: id,
-        user_id: userId 
+        user_id: userId,
       },
       include: {
         questionnaire: {
@@ -100,24 +104,3 @@ export class DiagnosticsService {
     return diagnostic;
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

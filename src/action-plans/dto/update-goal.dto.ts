@@ -1,28 +1,33 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { 
-  IsDateString, 
-  IsIn, 
-  IsNumber, 
-  IsOptional, 
-  IsString, 
-  IsUUID, 
-  Max, 
-  Min, 
-  ValidateIf 
+import {
+  IsDateString,
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+  ValidateIf,
 } from 'class-validator';
 
-const statuses = ['pendente', 'em_andamento', 'concluida', 'cancelada'] as const;
+const statuses = [
+  'pendente',
+  'em_andamento',
+  'concluida',
+  'cancelada',
+] as const;
 const priorities = ['baixa', 'media', 'alta'] as const;
 
-type GoalStatus = typeof statuses[number];
-type GoalPriority = typeof priorities[number];
+type GoalStatus = (typeof statuses)[number];
+type GoalPriority = (typeof priorities)[number];
 
 export class UpdateGoalDto {
   @ApiPropertyOptional({
     description: 'ID da meta (obrigatório para atualização)',
     format: 'uuid',
-    example: '123e4567-e89b-12d3-a456-426614174000'
+    example: '123e4567-e89b-12d3-a456-426614174000',
   })
   @IsOptional()
   @IsUUID(4, { message: 'ID de meta inválido' })
@@ -32,7 +37,7 @@ export class UpdateGoalDto {
     description: 'Título da meta',
     minLength: 3,
     maxLength: 200,
-    example: 'Completar curso avançado de TypeScript'
+    example: 'Completar curso avançado de TypeScript',
   })
   @IsOptional()
   @IsString({ message: 'O título deve ser um texto' })
@@ -43,7 +48,8 @@ export class UpdateGoalDto {
   @ApiPropertyOptional({
     description: 'Descrição detalhada da meta',
     maxLength: 1000,
-    example: 'Completar o curso avançado de TypeScript na plataforma X até o final do mês.'
+    example:
+      'Completar o curso avançado de TypeScript na plataforma X até o final do mês.',
   })
   @IsOptional()
   @IsString({ message: 'A descrição deve ser um texto' })
@@ -53,22 +59,22 @@ export class UpdateGoalDto {
   @ApiPropertyOptional({
     description: 'Status atual da meta',
     enum: statuses,
-    example: 'em_andamento'
+    example: 'em_andamento',
   })
   @IsOptional()
   @IsIn(statuses, {
-    message: `Status inválido. Opções válidas: ${statuses.join(', ')}`
+    message: `Status inválido. Opções válidas: ${statuses.join(', ')}`,
   })
   status?: GoalStatus;
 
   @ApiPropertyOptional({
     description: 'Nível de prioridade da meta',
     enum: priorities,
-    example: 'alta'
+    example: 'alta',
   })
   @IsOptional()
   @IsIn(priorities, {
-    message: `Prioridade inválida. Opções válidas: ${priorities.join(', ')}`
+    message: `Prioridade inválida. Opções válidas: ${priorities.join(', ')}`,
   })
   priority?: GoalPriority;
 
@@ -76,7 +82,7 @@ export class UpdateGoalDto {
     description: 'Progresso atual da meta (0-100)',
     minimum: 0,
     maximum: 100,
-    example: 50
+    example: 50,
   })
   @IsOptional()
   @IsNumber({}, { message: 'O progresso deve ser um número' })
@@ -88,23 +94,24 @@ export class UpdateGoalDto {
     description: 'Data de início da meta',
     type: 'string',
     format: 'date-time',
-    example: '2023-01-15T00:00:00.000Z'
+    example: '2023-01-15T00:00:00.000Z',
   })
   @IsOptional()
   @IsDateString({}, { message: 'Data de início inválida' })
-  @ValidateIf(o => o.due_date !== undefined)
+  @ValidateIf((o) => o.due_date !== undefined)
   start_date?: Date;
 
   @ApiPropertyOptional({
     description: 'Data de conclusão prevista',
     type: 'string',
     format: 'date-time',
-    example: '2023-12-31T23:59:59.999Z'
+    example: '2023-12-31T23:59:59.999Z',
   })
   @IsOptional()
   @IsDateString({}, { message: 'Data de término inválida' })
-  @ValidateIf(o => o.start_date !== undefined, {
-    message: 'A data de início é obrigatória quando a data de término é informada'
+  @ValidateIf((o) => o.start_date !== undefined, {
+    message:
+      'A data de início é obrigatória quando a data de término é informada',
   })
   due_date?: Date;
 

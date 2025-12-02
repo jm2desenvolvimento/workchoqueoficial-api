@@ -1,5 +1,20 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Request, UseGuards, UnauthorizedException } from '@nestjs/common';
-import { NotificationsService, CreateNotificationDto } from './notifications.service';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  Request,
+  UseGuards,
+  UnauthorizedException,
+} from '@nestjs/common';
+import {
+  NotificationsService,
+  CreateNotificationDto,
+} from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('notifications')
@@ -12,14 +27,14 @@ export class NotificationsController {
   async getMyNotifications(
     @Request() req,
     @Query('limit') limit?: string,
-    @Query('offset') offset?: string
+    @Query('offset') offset?: string,
   ) {
     const user = req.user;
     return await this.notificationsService.getForUser(
       user.sub,
       user.role,
       limit ? parseInt(limit) : 20,
-      offset ? parseInt(offset) : 0
+      offset ? parseInt(offset) : 0,
     );
   }
 
@@ -28,7 +43,10 @@ export class NotificationsController {
   async getUnreadCount(@Request() req) {
     const user = req.user;
     return {
-      count: await this.notificationsService.getUnreadCount(user.sub, user.role)
+      count: await this.notificationsService.getUnreadCount(
+        user.sub,
+        user.role,
+      ),
     };
   }
 
@@ -39,16 +57,16 @@ export class NotificationsController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
-    @Query('filter') filter?: string
+    @Query('filter') filter?: string,
   ) {
     const user = req.user;
     const filters = {
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 10,
       search: search || '',
-      filter: filter || 'all'
+      filter: filter || 'all',
     };
-    
+
     return await this.notificationsService.getSentByUser(user.sub, filters);
   }
 
@@ -70,9 +88,11 @@ export class NotificationsController {
   @Post()
   async create(@Body() data: CreateNotificationDto, @Request() req) {
     const user = req.user;
-    
+
     if (user.role !== 'admin' && user.role !== 'master') {
-      throw new UnauthorizedException('Apenas administradores podem criar notificações');
+      throw new UnauthorizedException(
+        'Apenas administradores podem criar notificações',
+      );
     }
 
     // Adicionar o ID do usuário que está criando a notificação
@@ -85,9 +105,11 @@ export class NotificationsController {
   @Delete(':id')
   async delete(@Param('id') id: string, @Request() req) {
     const user = req.user;
-    
+
     if (user.role !== 'admin' && user.role !== 'master') {
-      throw new UnauthorizedException('Apenas administradores podem deletar notificações');
+      throw new UnauthorizedException(
+        'Apenas administradores podem deletar notificações',
+      );
     }
 
     return await this.notificationsService.delete(id);
@@ -104,7 +126,7 @@ export class NotificationsController {
   @Post('cleanup')
   async cleanup(@Request() req) {
     const user = req.user;
-    
+
     if (user.role !== 'master') {
       throw new UnauthorizedException('Apenas masters podem executar limpeza');
     }
@@ -117,40 +139,54 @@ export class NotificationsController {
   // Notificar todos os usuários (apenas masters)
   @Post('broadcast')
   async broadcast(
-    @Body() data: { title: string; message: string; type?: 'info' | 'warning' | 'success' },
-    @Request() req
+    @Body()
+    data: {
+      title: string;
+      message: string;
+      type?: 'info' | 'warning' | 'success';
+    },
+    @Request() req,
   ) {
     const user = req.user;
-    
+
     if (user.role !== 'master') {
-      throw new UnauthorizedException('Apenas masters podem enviar notificações globais');
+      throw new UnauthorizedException(
+        'Apenas masters podem enviar notificações globais',
+      );
     }
 
     return await this.notificationsService.notifyAllUsers(
       data.title,
       data.message,
       data.type,
-      user.sub
+      user.sub,
     );
   }
 
   // Notificar admins sobre evento do sistema (apenas masters)
   @Post('notify-admins')
   async notifyAdmins(
-    @Body() data: { title: string; message: string; type?: 'info' | 'warning' | 'error' },
-    @Request() req
+    @Body()
+    data: {
+      title: string;
+      message: string;
+      type?: 'info' | 'warning' | 'error';
+    },
+    @Request() req,
   ) {
     const user = req.user;
-    
+
     if (user.role !== 'master') {
-      throw new UnauthorizedException('Apenas masters podem notificar administradores');
+      throw new UnauthorizedException(
+        'Apenas masters podem notificar administradores',
+      );
     }
 
     return await this.notificationsService.notifyMastersSystemEvent(
       data.title,
       data.message,
       data.type,
-      user.sub
+      user.sub,
     );
   }
 }

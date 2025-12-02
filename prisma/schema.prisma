@@ -93,6 +93,10 @@ model user {
   activity_logs     user_activity_log[]
   login_history     login_history[]
   notifications     notification[]
+
+  // Chatbot relationships
+  chat_sessions_owned    chat_session[] @relation("ChatSessionOwner")
+  chat_sessions_assigned chat_session[] @relation("ChatSessionAssignee")
   
   @@map("users")
 }
@@ -187,8 +191,9 @@ model company {
   updated_at  DateTime @updatedAt
   
   // Relationships
-  users       user[]
+  users         user[]
   subscriptions subscription[]
+  chat_sessions chat_session[]
   
   @@map("companies")
 }
@@ -523,6 +528,48 @@ model transaction {
   @@map("transactions")
 }
 
+// ==================== CHATBOT (AGENTE WORKCHOQUE) ====================
+
+model chat_session {
+  id            String   @id @default(cuid())
+  scope         String
+  owner_user_id String?
+  company_id    String?
+  created_by    String
+  assigned_to   String?
+  title         String?
+  status        String   @default("open")
+  metadata      Json?
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  owner         user?     @relation("ChatSessionOwner", fields: [owner_user_id], references: [id])
+  company       company?  @relation(fields: [company_id], references: [id])
+  assignee      user?     @relation("ChatSessionAssignee", fields: [assigned_to], references: [id])
+  messages      chat_message[]
+
+  @@index([owner_user_id])
+  @@index([company_id])
+  @@index([status])
+  @@map("chat_sessions")
+}
+
+model chat_message {
+  id           String   @id @default(cuid())
+  session_id   String
+  sender_type  String
+  sender_id    String?
+  content      Json
+  intent       String?
+  context_used Json?
+  created_at   DateTime @default(now())
+
+  session      chat_session @relation(fields: [session_id], references: [id], onDelete: Cascade)
+
+  @@index([session_id])
+  @@map("chat_messages")
+}
+
 // ==================== AUDIT AND ACTIVITY TRACKING ====================
 
 // User activity logs - rastreia todas as ações dos usuários
@@ -617,6 +664,7 @@ model category {
   name        String
   description String?
   type        category_type
+  slug        String?
   icon        String?
   color       String?    // Código de cor em hex
   is_active   Boolean    @default(true)

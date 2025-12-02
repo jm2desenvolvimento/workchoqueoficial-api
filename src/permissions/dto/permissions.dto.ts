@@ -1,4 +1,11 @@
-import { IsArray, IsEnum, IsString, IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsBoolean,
+} from 'class-validator';
 
 export enum UserRole {
   USER = 'user',

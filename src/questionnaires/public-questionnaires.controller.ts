@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Param, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { QuestionnairesService } from './questionnaires.service';
 import { ResponseQuestionnaireDto } from './dto/response-questionnaire.dto';
 
@@ -27,14 +35,18 @@ export class PublicQuestionnairesController {
     // Endpoint público para visitantes não logados
     // Retorna dados básicos sem salvar no banco
     try {
-      const questionnaire = await this.questionnairesService.findOne(questionnaireId);
-      
+      const questionnaire =
+        await this.questionnairesService.findOne(questionnaireId);
+
       if (!questionnaire.is_active) {
         throw new BadRequestException('Questionário não está ativo');
       }
 
       // Calcular score básico
-      const score = this.calculateBasicScore(responseDto.responses, questionnaire.questions);
+      const score = this.calculateBasicScore(
+        responseDto.responses,
+        questionnaire.questions,
+      );
       const category = this.getScoreCategory(score);
 
       return {
@@ -44,7 +56,7 @@ export class PublicQuestionnairesController {
         questionnaire: {
           id: questionnaire.id,
           title: questionnaire.title,
-          type: questionnaire.type
+          type: questionnaire.type,
         },
         responses: Object.keys(responseDto.responses).length,
         completedAt: new Date(),
@@ -54,15 +66,18 @@ export class PublicQuestionnairesController {
           answers: responseDto.responses,
           score,
           category,
-          completedAt: new Date().toISOString()
-        }
+          completedAt: new Date().toISOString(),
+        },
       };
     } catch (error) {
       throw error;
     }
   }
 
-  private calculateBasicScore(responses: Record<string, string>, questions: any[]): number {
+  private calculateBasicScore(
+    responses: Record<string, string>,
+    questions: any[],
+  ): number {
     let totalScore = 0;
     let maxPossibleScore = 0;
 
@@ -75,9 +90,13 @@ export class PublicQuestionnairesController {
           maxPossibleScore += 10;
         } else if (question.type === 'multiple_choice' && question.options) {
           // Para múltipla escolha, usar score da opção
-          const option = question.options.find((opt: any) => opt.value === answer);
+          const option = question.options.find(
+            (opt: any) => opt.value === answer,
+          );
           totalScore += option?.score || 0;
-          maxPossibleScore += Math.max(...question.options.map((opt: any) => opt.score));
+          maxPossibleScore += Math.max(
+            ...question.options.map((opt: any) => opt.score),
+          );
         } else {
           // Para outras perguntas, usar valor como número ou score padrão
           totalScore += Number(answer) || 3;

@@ -1,10 +1,64 @@
 import axios from 'axios';
+import crypto from 'crypto';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const GEMINI_API_KEY = (process.env.GEMINI_API_KEY || '').trim();
+const SA_JSON = (process.env.GEMINI_SERVICE_ACCOUNT_JSON || '').trim();
+const SA_EMAIL = (process.env.GEMINI_SA_CLIENT_EMAIL || '').trim();
+const SA_KEY = (process.env.GEMINI_SA_PRIVATE_KEY || '').replace(/\\n/g, '\n').trim();
+const MODELS = [
+  'gemini-pro',
+  'gemini-1.5-flash',
+  'gemini-1.5-pro',
+  'gemini-1.5-flash-latest',
+  'gemini-1.5-pro-latest',
+];
 
-if (!GEMINI_API_KEY) {
-  throw new Error('GEMINI_API_KEY não definida nas variáveis de ambiente.');
+function hasServiceAccount() {
+  if (SA_JSON) return true;
+  if (SA_EMAIL && SA_KEY) return true;
+  return false;
+}
+
+function getServiceAccount() {
+  if (SA_JSON) {
+    try {
+      return JSON.parse(SA_JSON);
+    } catch {
+      return null;
+    }
+  }
+  if (SA_EMAIL && SA_KEY) {
+    return { client_email: SA_EMAIL, private_key: SA_KEY } as any;
+  }
+  return null;
+}
+
+async function getAccessToken() {
+  const sa = getServiceAccount();
+  if (!sa) return null;
+  const header = { alg: 'RS256', typ: 'JWT' };
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: sa.client_email,
+    scope: 'https://www.googleapis.com/auth/generative-language',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600,
+  };
+  const encode = (obj: any) => Buffer.from(JSON.stringify(obj)).toString('base64url');
+  const unsigned = encode(header) + '.' + encode(payload);
+  const signer = crypto.createSign('RSA-SHA256');
+  signer.update(unsigned);
+  const signature = signer.sign(sa.private_key).toString('base64url');
+  const assertion = unsigned + '.' + signature;
+  const params = new URLSearchParams();
+  params.append('grant_type', 'urn:ietf:params:oauth:grant-type:jwt-bearer');
+  params.append('assertion', assertion);
+  const resp = await axios.post('https://oauth2.googleapis.com/token', params.toString(), {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    timeout: 15000,
+  });
+  return resp.data?.access_token || null;
 }
 
 /**
@@ -13,32 +67,65 @@ if (!GEMINI_API_KEY) {
  * @returns Texto da análise gerada pela IA
  */
 export async function analyzeWithGemini(input: string): Promise<string> {
+  console.log(
+    '[Gemini][analyze] inputLen:',
+    typeof input === 'string' ? input.length : 0,
+  );
   const payload = {
     contents: [
       {
-        parts: [
-          { text: input }
-        ]
-      }
-    ]
-  };
-
-  const url = `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`;
-
-  try {
-    const response = await axios.post(url, payload, {
-      headers: {
-        'Content-Type': 'application/json',
+        role: 'user',
+        parts: [{ text: input }],
       },
-    });
-    const data = response.data;
-    // O texto gerado geralmente vem em data.candidates[0].content.parts[0].text
-    const analysis = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Sem resposta da IA.';
-    return analysis;
-  } catch (err: any) {
-    const msg = err?.response?.data?.error?.message || err.message;
-    throw new Error('Erro ao consultar Gemini: ' + msg);
+    ],
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: 2048,
+    },
+  };
+  let lastError: { code?: number; message?: string } | null = null;
+  const useSA = hasServiceAccount();
+  const bearer = useSA ? await getAccessToken() : null;
+  for (const model of MODELS) {
+  const base = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+    const url = useSA ? base : `${base}?key=${GEMINI_API_KEY}`;
+    try {
+      const response = await axios.post(url, payload, {
+        headers: useSA
+          ? { 'Content-Type': 'application/json', Authorization: `Bearer ${bearer}` }
+          : { 'Content-Type': 'application/json' },
+        timeout: 15000,
+      });
+      const data = response.data;
+      const analysis =
+        data?.candidates?.[0]?.content?.parts?.[0]?.text ||
+        'Sem resposta da IA.';
+      console.log(
+        '[Gemini][analyze] model:',
+        model,
+        'textLen:',
+        typeof analysis === 'string' ? analysis.length : 0,
+      );
+      return analysis;
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || err.message;
+      const code = err?.response?.status;
+      console.error(
+        '[Gemini][analyze] model failed:',
+        model,
+        code,
+        msg,
+        'details:',
+        JSON.stringify(err?.response?.data || {}),
+      );
+      lastError = { code, message: msg };
+      continue;
+    }
   }
+  throw new Error(
+    'Erro ao consultar Gemini: ' +
+      (lastError?.message || 'Falha em todos os modelos'),
+  );
 }
 
 /**
@@ -49,7 +136,7 @@ export async function analyzeWithGemini(input: string): Promise<string> {
  */
 export async function generateDiagnostic(
   questionnaire: any,
-  userResponses: any[]
+  userResponses: any[],
 ): Promise<{
   insights: string[];
   recommendations: string[];
@@ -132,14 +219,14 @@ function parseActionPlanResponse(response: string, diagnosticoId: string): any {
     const jsonStart = response.indexOf('{');
     const jsonEnd = response.lastIndexOf('}') + 1;
     const jsonString = response.substring(jsonStart, jsonEnd);
-    
+
     const plano = JSON.parse(jsonString);
-    
+
     // Validação básica da estrutura
     if (!plano.titulo || !plano.descricao || !Array.isArray(plano.tarefas)) {
       throw new Error('Resposta da IA não está no formato esperado');
     }
-    
+
     // Adiciona IDs e padroniza as tarefas
     const tarefas = plano.tarefas.map((tarefa: any, index: number) => ({
       id: `tarefa-${Date.now()}-${index}`,
@@ -147,15 +234,18 @@ function parseActionPlanResponse(response: string, diagnosticoId: string): any {
       concluida: false,
       prioridade: tarefa.prioridade || 'media',
       area: tarefa.area || 'Geral',
-      prazoDias: tarefa.prazoDias || 30
+      prazoDias: tarefa.prazoDias || 30,
     }));
-    
+
     // Calcula a data de término baseada no maior prazo das tarefas
     const hoje = new Date();
-    const maiorPrazoDias = Math.max(...tarefas.map((t: any) => t.prazoDias), 30);
+    const maiorPrazoDias = Math.max(
+      ...tarefas.map((t: any) => t.prazoDias),
+      30,
+    );
     const dataFim = new Date();
     dataFim.setDate(hoje.getDate() + maiorPrazoDias);
-    
+
     return {
       ...plano,
       id: `plano-${Date.now()}`,
@@ -166,16 +256,18 @@ function parseActionPlanResponse(response: string, diagnosticoId: string): any {
       progresso: 0,
       responsaveis: [],
       anexos: [],
-      historico: [{
-        id: `hist-${Date.now()}`,
-        acao: 'Plano de Ação criado automaticamente a partir do diagnóstico',
-        data: new Date().toISOString(),
-        usuario: 'Sistema'
-      }],
+      historico: [
+        {
+          id: `hist-${Date.now()}`,
+          acao: 'Plano de Ação criado automaticamente a partir do diagnóstico',
+          data: new Date().toISOString(),
+          usuario: 'Sistema',
+        },
+      ],
       criadoEm: new Date().toISOString(),
       atualizadoEm: new Date().toISOString(),
       criadoPor: 'Sistema',
-      tarefas
+      tarefas,
     };
   } catch (error) {
     console.error('Erro ao processar resposta do Gemini:', error);
@@ -186,9 +278,12 @@ function parseActionPlanResponse(response: string, diagnosticoId: string): any {
 /**
  * Constrói o prompt específico para análise de diagnóstico
  */
-function buildDiagnosticPrompt(questionnaire: any, userResponses: any[]): string {
+function buildDiagnosticPrompt(
+  questionnaire: any,
+  userResponses: any[],
+): string {
   const questionnaireType = questionnaire.type?.toLowerCase() || 'geral';
-  
+
   let prompt = `Você é um consultor empresarial especializado em diagnóstico organizacional. 
 Analise as respostas do questionário "${questionnaire.title}" e forneça um diagnóstico empresarial focado nas 8 áreas essenciais de negócio.
 
@@ -202,7 +297,9 @@ RESPOSTAS DO USUÁRIO:
 
   // Adicionar cada resposta com contexto
   userResponses.forEach((response, index) => {
-    const question = questionnaire.questions?.find((q: any) => q.id === response.question_id);
+    const question = questionnaire.questions?.find(
+      (q: any) => q.id === response.question_id,
+    );
     prompt += `
 ${index + 1}. Pergunta: ${question?.question || 'Pergunta não encontrada'}
    Resposta: ${response.response}
@@ -297,14 +394,24 @@ function parseDiagnosticResponse(response: string): {
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
-      
+
       // Validar e garantir tipos corretos
       return {
         insights: Array.isArray(parsed.insights) ? parsed.insights : [],
-        recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
-        areas_focus: Array.isArray(parsed.areas_focus) ? parsed.areas_focus : [],
-        score_intelligent: typeof parsed.score_intelligent === 'number' ? parsed.score_intelligent : 50,
-        analysis_summary: typeof parsed.analysis_summary === 'string' ? parsed.analysis_summary : response
+        recommendations: Array.isArray(parsed.recommendations)
+          ? parsed.recommendations
+          : [],
+        areas_focus: Array.isArray(parsed.areas_focus)
+          ? parsed.areas_focus
+          : [],
+        score_intelligent:
+          typeof parsed.score_intelligent === 'number'
+            ? parsed.score_intelligent
+            : 50,
+        analysis_summary:
+          typeof parsed.analysis_summary === 'string'
+            ? parsed.analysis_summary
+            : response,
       };
     }
   } catch (error) {
@@ -314,9 +421,11 @@ function parseDiagnosticResponse(response: string): {
   // Fallback se não conseguir parsear
   return {
     insights: ['Análise gerada pela IA'],
-    recommendations: ['Consulte um especialista para recomendações específicas'],
+    recommendations: [
+      'Consulte um especialista para recomendações específicas',
+    ],
     areas_focus: ['Áreas identificadas na análise'],
     score_intelligent: 50,
-    analysis_summary: response
+    analysis_summary: response,
   };
 }
